@@ -1,0 +1,21 @@
+{
+  "ConfigFiles" : [
+    "config_tests/SystemConfigs/system_description1_5c.json",
+    "config_tests/SystemConfigs/system_description1_7c.json",
+    "config_tests/SystemConfigs/system_description1_10c.json",
+    "config_tests/SystemConfigs/system_description1_15c.json"
+  ],
+
+  "Algorithm" : {
+    "RG_n_iterations" : 1000,
+    "LS_n_iterations" : 10,
+    "max_num_sols" : 10,
+    "reproducibility" : true
+  },
+
+  "Logger" : {
+    "priority" : 1,
+    "terminal_stream" : true,
+    "file_stream" : false
+  }
+}

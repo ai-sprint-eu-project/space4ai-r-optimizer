@@ -1,0 +1,21 @@
+{
+  "ConfigFiles" : [
+    "/mnt/s4ai-r/mask_detection/CONFIG_FILES/system_description_maskdetection.json"
+  ],
+  "DTSolutions" : [ 
+    "/mnt/s4ai-r/mask_detection/CONFIG_FILES/Sol_system_description_maskdetection.json"
+  ],
+  "Lambda": 0.3, 
+  "Algorithm" : {
+    "RG_n_iterations" : 1000,
+    "LS_n_iterations" : 10,
+    "max_num_sols" : 10,
+    "reproducibility" : true
+  },
+  "Logger" : {
+    "priority" : 1,
+    "terminal_stream" : true,
+    "file_stream" : false
+  }
+
+}

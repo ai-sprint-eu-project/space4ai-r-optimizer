@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-max-load-api-pod
+spec:
+  containers:
+    - name: test-max-load-api
+      image: aisprint/space4ai-r:dev
+      imagePullPolicy: Never
+      command: [
+        "python3", 
+        "/mnt/test_webapi.py",
+        "--application_dir",
+        "blurry_faces_single_component_local_constraint/step_6",
+        "--min_load",
+        "0.008",
+        "--max_load",
+        "0.34"
+      ]
+      env:
+      # environment variables for amllibrary
+      - name: AMLLIBRARY_URL
+        valueFrom:
+          configMapKeyRef:
+            name: aml-ws-config
+            key: AMLLIBRARY_URL
+      - name: AMLLIBRARY_PORT
+        valueFrom:
+          configMapKeyRef:
+            name: aml-ws-config
+            key: AMLLIBRARY_PORT
+      # environment variables for max-load-api
+      - name: S4AIR_MAXLOADAPI_URL
+        valueFrom:
+          configMapKeyRef:
+            name: s4air-max-load-api-config
+            key: S4AIR_MAXLOADAPI_URL
+      - name: S4AIR_MAXLOADAPI_PORT
+        valueFrom:
+          configMapKeyRef:
+            name: s4air-max-load-api-config
+            key: S4AIR_MAXLOADAPI_PORT
+      - name: MOUNT_POINT
+        valueFrom:
+          configMapKeyRef:
+            name: s4air-max-load-api-config
+            key: MOUNT_POINT
+      # path to mounted volume
+      volumeMounts:
+      - mountPath: "/mnt"
+        name: aml-ws-vol
+  # volumes to mount
+  volumes:
+  - name: aml-ws-vol
+    persistentVolumeClaim:
+      claimName: aml-ws-claim
+  restartPolicy: Never

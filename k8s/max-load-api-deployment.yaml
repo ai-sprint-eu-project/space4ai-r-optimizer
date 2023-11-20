@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment
+spec:
+  replicas: 1 
+  template:
+    spec:
+      containers:
+      - name: max-load-api
+        image: aisprint/space4ai-r:webapi
+        imagePullPolicy: Never
+        command: [
+          "python3",
+          "maximum_workload.py"
+        ]
+        ports:
+        - containerPort: 8008
+        env:
+        # environment variables for amllibrary
+        - name: AMLLIBRARY_URL
+          valueFrom:
+            configMapKeyRef:
+              name: aml-ws-config
+              key: AMLLIBRARY_URL
+        - name: AMLLIBRARY_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: aml-ws-config
+              key: AMLLIBRARY_PORT
+        # environment variables for max-load-api
+        - name: S4AIR_MAXLOADAPI_URL
+          valueFrom:
+            configMapKeyRef:
+              name: config
+              key: S4AIR_MAXLOADAPI_URL
+        - name: S4AIR_MAXLOADAPI_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: config
+              key: S4AIR_MAXLOADAPI_PORT
+        - name: MOUNT_POINT
+          valueFrom:
+            configMapKeyRef:
+              name: config
+              key: MOUNT_POINT
+        # path to mounted volume
+        volumeMounts:
+        - mountPath: "/mnt"
+          name: aml-ws-vol
+      # volumes to mount
+      volumes:
+      - name: aml-ws-vol
+        persistentVolumeClaim:
+          claimName: aml-ws-claim

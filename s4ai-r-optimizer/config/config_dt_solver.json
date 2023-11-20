@@ -1,0 +1,21 @@
+{
+  "ConfigFiles" : [
+    "config/GeneralWorkflows/Strict/15-components/system_description1.json"
+  ],
+
+  "Lambda" : 1.8,
+
+  "Algorithm" : {
+    "RG_n_iterations" : 2600,
+    "LS_n_iterations" : 950,
+    "RG_max_num_sols" : 5,
+    "LS_max_num_sols" : 1,
+    "reproducibility" : true
+  },
+
+  "Logger" : {
+    "priority" : 5,
+    "terminal_stream" : false,
+    "file_stream" : false
+  }
+}

@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: s4air-optimizer-pod
+spec:
+  containers:
+    - name: s4air-optimizer
+      image: aisprint/space4ai-r:23.06.08
+      imagePullPolicy: Never
+      command: [
+        "python3", 
+        "s4ai-r-opt.py",
+        "--application_dir",
+        "/mnt/mask_detection_1_partitionable_local_constraints/step_5",
+        "--RG_n_iterations",
+        "10",
+        "--LS_n_iterations",
+        "2",
+        "--load",
+        "0.3"
+      ]
+      env:
+      # environment variables for amllibrary
+      - name: AMLLIBRARY_URL
+        valueFrom:
+          configMapKeyRef:
+            name: aml-ws-config
+            key: AMLLIBRARY_URL
+      - name: AMLLIBRARY_PORT
+        valueFrom:
+          configMapKeyRef:
+            name: aml-ws-config
+            key: AMLLIBRARY_PORT
+      # path to mounted volume
+      volumeMounts:
+      - mountPath: "/mnt"
+        name: aml-ws-vol
+  # volumes to mount
+  volumes:
+  - name: aml-ws-vol
+    persistentVolumeClaim:
+      claimName: aml-ws-claim
+  restartPolicy: Never

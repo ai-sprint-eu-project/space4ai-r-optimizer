@@ -1,0 +1,46 @@
+{
+  "Lambda": 0.25,
+  "components": {
+    "c1": {
+      "s1": {
+        "h1": {
+          "computationalLayer1": {
+            "VM1": {
+              "description": "t2.large",
+              "cost": 1.2,
+              "memory": 8192.0,
+              "number": 1
+            }
+          },
+          "response_time": [
+            11.545453
+          ]
+        }
+      },
+      "response_time": 11.545453071594238,
+      "response_time_threshold": 20.0
+    },
+    "c2": {
+      "s1": {
+        "h1": {
+          "computationalLayer2": {
+            "VM2": {
+              "description": "t3.xlarge",
+              "cost": 1.8,
+              "memory": 16384.0,
+              "number": 1
+            }
+          },
+          "response_time": [
+            9.855
+          ]
+        }
+      },
+      "response_time": 9.855,
+      "response_time_threshold": 10.0
+    }
+  },
+  "global_constraints": {},
+  "total_cost": "3.0",
+  "feasible": true
+}

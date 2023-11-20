@@ -1,0 +1,16 @@
+resources:
+- max-load-api-service.yaml
+- max-load-api-deployment.yaml
+
+commonLabels:
+  app: s4air-max-load-api
+
+namePrefix:
+  s4air-max-load-api-
+
+configMapGenerator:
+- name: config
+  env: config.properties
+
+generatorOptions:
+ disableNameSuffixHash: true

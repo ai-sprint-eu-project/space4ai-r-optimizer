@@ -1,0 +1,201 @@
+{
+    "CloudResources": {
+        "computationalLayer1": {
+            "VM1": {
+                "description": "t2.large",
+                "number": 5,
+                "cost": 1.2,
+                "memory": 8192,
+                "n_cores": 4
+            }
+        },
+        "computationalLayer2": {
+            "VM2": {
+                "description": "t3.xlarge",
+                "number": 5,
+                "cost": 1.8,
+                "memory": 16384,
+                "n_cores": 4
+            }
+        }
+    },
+    "Components": {
+        "c1": {
+            "s1": {
+                "h1": {
+                    "next": [
+                        "c2"
+                    ],
+                    "early_exit_probability": 0,
+                    "data_size": [
+                        415.0
+                    ]
+                }
+            },
+            "s2": {
+                "h2": {
+                    "next": [
+                        "h3"
+                    ],
+                    "early_exit_probability": 0,
+                    "data_size": [
+                        13000.0
+                    ]
+                },
+                "h3": {
+                    "next": [
+                        "c2"
+                    ],
+                    "early_exit_probability": 0,
+                    "data_size": [
+                        415.0
+                    ]
+                }
+            }
+        },
+        "c2": {
+            "s1": {
+                "h1": {
+                    "next": [],
+                    "early_exit_probability": 0,
+                    "data_size": [
+                        625.0
+                    ]
+                }
+            },
+            "s2": {
+                "h2": {
+                    "next": [
+                        "h3"
+                    ],
+                    "early_exit_probability": 0,
+                    "data_size": [
+                        12600.0
+                    ]
+                },
+                "h3": {
+                    "next": [],
+                    "early_exit_probability": 0,
+                    "data_size": [
+                        552.0
+                    ]
+                }
+            }
+        }
+    },
+    "NetworkTechnology": {
+        "ND1": {
+            "computationallayers": [
+                "computationalLayer1",
+                "computationalLayer2"
+            ],
+            "AccessDelay": 2.77e-06,
+            "Bandwidth": 40000
+        }
+    },
+    "CompatibilityMatrix": {
+        "c1": {
+            "h1": [
+                {
+                    "resource": "VM1",
+                    "memory": 1024
+                }
+            ],
+            "h2": [
+                {
+                    "resource": "VM1",
+                    "memory": 1024
+                }
+            ],
+            "h3": [
+                {
+                    "resource": "VM2",
+                    "memory": 1024
+                }
+            ]
+        },
+        "c2": {
+            "h1": [
+                {
+                    "resource": "VM2",
+                    "memory": 1024
+                }
+            ],
+            "h2": [
+                {
+                    "resource": "VM2",
+                    "memory": 1024
+                }
+            ],
+            "h3": [
+                {
+                    "resource": "VM2",
+                    "memory": 1024
+                }
+            ]
+        }
+    },
+    "LocalConstraints": {
+        "c1": {
+            "local_res_time": 20
+        },
+        "c2": {
+            "local_res_time": 10
+        }
+    },
+    "GlobalConstraints": {},
+    "DirectedAcyclicGraph": {
+        "c1": {
+            "next": [
+                "c2"
+            ],
+            "transition_probability": [
+                1
+            ]
+        }
+    },
+    "Performance": {
+        "c1": {
+            "h1": {
+                "VM1": {
+                    "model": "AMLCORE",
+                    "regressor_file": "/mnt/s4ai-r/mask_detection/deployment_0/C1@VM1/results/Models/C1@VM1_model_noSFS/best.pickle"
+                }
+            },
+            "h2": {
+                "VM1": {
+                    "model": "AMLCORE",
+                    "regressor_file": "/mnt/s4ai-r/mask_detection/deployment_2/C1P1.1@VM1/results/Models/C1P1.1@VM1_model_noSFS/best.pickle"
+                }
+            },
+            "h3": {
+                "VM2": {
+                    "model": "AMLCORE",
+                    "regressor_file": "/mnt/s4ai-r/mask_detection/deployment_2/C1P1.2@VM2/results/Models/C1P1.2@VM2_model_noSFS/best.pickle"
+                }
+            }
+        },
+        "c2": {
+            "h1": {
+                "VM2": {
+                    "model": "AMLCORE",
+                    "regressor_file": "/mnt/s4ai-r/mask_detection/deployment_0/C2@VM2/results/Models/C2@VM2_model_noSFS/best.pickle"
+                }
+            },
+            "h2": {
+                "VM2": {
+                    "model": "AMLCORE",
+                    "regressor_file": "/mnt/s4ai-r/mask_detection/deployment_1/C2P1.1@VM2/results/Models/C2P1.1@VM2_model_noSFS/best.pickle"
+                }
+            },
+            "h3": {
+                "VM2": {
+                    "model": "AMLCORE",
+                    "regressor_file": "/mnt/s4ai-r/mask_detection/deployment_1/C2P1.2@VM2/results/Models/C2P1.2@VM2_model_noSFS/best.pickle"
+                }
+            }
+        }
+    },
+    "Lambda": 0.25,
+    "Time": 1
+}

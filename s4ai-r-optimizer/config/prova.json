@@ -1,0 +1,21 @@
+{
+  "ConfigFiles" : [
+    "config/RunningExample/system_description_scenario1.json"
+  ],
+
+  "Lambda" : 1.8,
+
+  "Algorithm" : {
+    "RG_n_iterations" : 10000,
+    "LS_n_iterations" : 1666,
+    "RG_max_num_sols" : 10,
+    "LS_max_num_sols" : 1,
+    "reproducibility" : true
+  },
+
+  "Logger" : {
+    "priority" : 5,
+    "terminal_stream" : false,
+    "file_stream" : false
+  }
+}
