@@ -1,5 +1,4 @@
-from space4ai_parser.JsonGenerator import ParserYamlToJson
-from Logger import Logger
+from external import space4ai_logger, space4ai_parser
 
 from flask import Flask, request, jsonify
 from waitress import serve
@@ -71,7 +70,9 @@ def change_format(application_dir: str, production_deployment: dict) -> dict:
     space4ai-r optimizer
     """
     # initialize parser
-    parser = ParserYamlToJson(application_dir=application_dir, who="s4ai-r")
+    parser = space4ai_parser.ParserYamlToJson(
+        application_dir=application_dir, who="s4ai-r"
+    )
     # load relevant information from the production deployment
     selected_components = parser.get_selected_components(production_deployment)
     # define solution
@@ -162,7 +163,9 @@ def increase_resources(application_dir: str, current_solution: dict) -> dict:
     # load the system description (or generate it if not available)
     system_file = os.path.join(application_dir, "space4ai-r/SystemFile.json")
     if not os.path.exists(system_file):
-        parser = ParserYamlToJson(application_dir=application_dir,who="s4ai-r")
+        parser = space4ai_parser.ParserYamlToJson(
+            application_dir=application_dir, who="s4ai-r"
+        )
         system_file = parser.make_system_file()
     with open(system_file, "r") as file:
         system = json.load(file)
@@ -215,7 +218,7 @@ def binary_search(
       epsilon: float,
       optimizer_config: dict,
       optimizer_config_file: str,
-      logger: Logger
+      logger: space4ai_logger.Logger
     ) -> float:
     """
     Returns the maximum admissible workload for the given production 
@@ -287,7 +290,7 @@ def maximum_workload():
             KEY_ERROR = 30
         else:
             # initialize logger
-            logger = Logger()
+            logger = space4ai_logger.Logger(name="SPACE4AI-R-MaxWorkloadApi")
             # get binary search parameters
             min_lambda = data.get("lowerBoundLambda")
             max_lambda = data.get("upperBoundLambda")
