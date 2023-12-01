@@ -16,6 +16,7 @@ app = Flask(__name__)
 # online path
 home_path = "/"
 path = "/space4air/workload"
+json_path = "/space4air/workload/json"
 
 # exit codes
 NOT_FOUND = 404
@@ -26,7 +27,11 @@ error_msg = {
     404: "ERROR: page not found",
     414: "ERROR: missing mandatory input `application_dir`",
     424: "ERROR: `application_dir` is not accessible",
-    434: "ERROR: `production_deployment` is not accessible"
+    434: "ERROR: `production_deployment` is not accessible",
+    444: "ERROR: missing mandatory input `lowerBoundLambda` in json setting",
+    454: "ERROR: system file is not accessible",
+    464: "ERROR: current solution file is not accessible",
+    474: "ERROR: `upperBoundLambda` or `epsilon` not properly set"
 }
 
 # mount point
@@ -261,7 +266,8 @@ def binary_search(
 # ----------------------------------------------------------------------------
 @app.route(home_path, methods=["GET"])
 def home():
-    return jsonify(f"Available! Post to {path}"), SUCCESS
+    msg = f"Available! Post to {path} or {json_path}"
+    return jsonify(msg), SUCCESS
 
 
 @app.route(path, methods=["POST"])
@@ -401,6 +407,128 @@ def maximum_workload():
         output = (
           error_msg[NOT_FOUND + KEY_ERROR], 
           NOT_FOUND + KEY_ERROR
+        )
+    return jsonify(output[0]), output[1]
+
+
+@app.route(json_path, methods=["POST"])
+def maximum_workload_json():
+    """
+    Compute the maximum admissible workload for the given configuration
+    """
+    data = request.get_json()
+    max_workload = None
+    # check existence of mandatory fields:
+    KEY_ERROR = 0
+    if "application_dir" not in data.keys():
+        KEY_ERROR = 10
+    else:
+        if "lowerBoundLambda" not in data.keys():
+            KEY_ERROR = 40
+        else:
+            min_lambda = data["lowerBoundLambda"]
+            # define directories and files paths
+            application_dir = data["application_dir"]
+            input_dir = os.path.join(MOUNT_POINT, "input", application_dir)
+            s4air_output_dir = os.path.join(
+                MOUNT_POINT, "output", application_dir, "space4air"
+            )
+            output_dir = os.path.join(
+                MOUNT_POINT, "output", application_dir, "maxworkloadapi"
+            )
+            system_file = os.path.join(input_dir, "SystemFile.json")
+            current_solution_file = os.path.join(
+                s4air_output_dir, f"Lambda_{min_lambda}.json"
+            )
+            # check that the system file is accessible
+            if not os.path.exists(system_file):
+                KEY_ERROR = 50
+            # check that the current solution file is accessible
+            if not os.path.exists(current_solution_file):
+                KEY_ERROR = 60
+            else:
+                # initialize logger
+                logger = space4ai_logger.Logger()
+                # get binary search parameters
+                max_lambda = data.get("upperBoundLambda")
+                epsilon = data.get("epsilon")
+                if max_lambda is None or epsilon is None:
+                    KEY_ERROR = 70
+                else:
+                    logger.log(
+                        f"Binary search between {min_lambda} and {max_lambda}"
+                    )
+                    max_workload = min_lambda
+                    found_any_feasible = False
+                    # copy solution
+                    solution_file = os.path.join(
+                        output_dir, f"Lambda_{min_lambda}.json"
+                    )
+                    shutil.copyfile(
+                        current_solution_file, solution_file
+                    )
+                    # initialize the optimizer configuration file
+                    config = {
+                        "ConfigFiles": [system_file],
+                        "DTSolutions": [solution_file],
+                        "BinarySearchOutputs": [
+                            os.path.join(
+                                output_dir, 
+                                "check_feasibility_output.json"
+                            )
+                        ],
+                        "Lambda": None,
+                        "Logger": {
+                            "priority": 2,
+                            "terminal_stream": True,
+                            "file_stream": False,
+                        }
+                    }
+                    config_file = os.path.join(
+                        output_dir, 
+                        "BinarySearchConfig.json"
+                    )
+                    # start binary search
+                    logger.log("Start binary search")
+                    max_workload, found_any_feasible = binary_search(
+                        min_lambda=min_lambda,
+                        max_lambda=max_lambda,
+                        epsilon=epsilon,
+                        optimizer_config=config,
+                        optimizer_config_file=config_file,
+                        logger=logger
+                    )
+                    logger.log(
+                        "Binary search terminates with {} value {}".format(
+                            "FEASIBLE" if found_any_feasible else "UNFEASIBLE",
+                            max_workload
+                        )
+                    )
+                    if found_any_feasible:
+                        # save the final solution
+                        max_load_solution_file = os.path.join(
+                            output_dir,
+                            f"Output_max_Lambda_{max_workload}.json"
+                        )
+                        shutil.move(
+                            solution_file, max_load_solution_file
+                        )
+                        logger.log(
+                            f"Final solution written at {max_load_solution_file}"
+                        )
+                    # define output
+                    output = (
+                        {
+                            "max_workload": max_workload, 
+                            "feasible": found_any_feasible
+                        }, 
+                        SUCCESS
+                    )
+    # if any key error is defined, return error code
+    if KEY_ERROR > 0:
+        output = (
+            error_msg[NOT_FOUND + KEY_ERROR], 
+            NOT_FOUND + KEY_ERROR
         )
     return jsonify(output[0]), output[1]
 
