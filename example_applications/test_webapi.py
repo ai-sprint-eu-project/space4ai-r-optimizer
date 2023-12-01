@@ -8,6 +8,11 @@ def parse_arguments() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(description="SPACE4AI-R max-load api")
     parser.add_argument(
+      "--check_home",
+      default=False,
+      action="store_true"
+    )
+    parser.add_argument(
       "--application_dir", 
       help="Path to the application directory", 
       type=str
@@ -38,21 +43,28 @@ def main(args: argparse.Namespace):
     # get environment variables with url and port
     API_URL = os.getenv("S4AIR_MAXLOADAPI_URL", "0.0.0.0")
     API_PORT = os.getenv("S4AIR_MAXLOADAPI_PORT", "8008")
-    # define data
-    sample_data = {
-      "application_dir": args.application_dir
-    }
-    if args.min_load is not None:
-        sample_data["lowerBoundLambda"] = args.min_load
-    if args.max_load is not None:
-        sample_data["upperBoundLambda"] = args.max_load
-    if args.epsilon is not None:
-        sample_data["epsilon"] = args.epsilon
-    # send request
-    url = f"http://{API_URL}:{API_PORT}/space4air/workload"
-    sample_result = requests.post(url = url, json = sample_data)
-    print(sample_result)
-    print(sample_result.json())
+    # check home, if required
+    if args.check_home:
+        url = f"http://{API_URL}:{API_PORT}/"
+        sample_result = requests.get(url = url)
+        print(sample_result)
+        print(sample_result.json())
+    else:
+        # define data
+        sample_data = {
+          "application_dir": args.application_dir
+        }
+        if args.min_load is not None:
+            sample_data["lowerBoundLambda"] = args.min_load
+        if args.max_load is not None:
+            sample_data["upperBoundLambda"] = args.max_load
+        if args.epsilon is not None:
+            sample_data["epsilon"] = args.epsilon
+        # send request
+        url = f"http://{API_URL}:{API_PORT}/space4air/workload/json"
+        sample_result = requests.post(url = url, json = sample_data)
+        print(sample_result)
+        print(sample_result.json())
 
 
 if __name__ == "__main__":
