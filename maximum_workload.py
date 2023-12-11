@@ -277,6 +277,21 @@ def binary_search(
     return highest_feasible_lambda, found_any_feasible
 
 
+def convert_verbosity_level(verbosity_level: str) -> int:
+    """
+    Return the verbosity level as required by the SPACE4AI-R-Optimizer 
+    depending on the input string
+    """
+    if verbosity_level == "INFO":
+        return 2
+    elif verbosity_level == "DEBUG":
+        return 1
+    elif verbosity_level == "TRACE":
+        return 0
+    else:
+        return -1
+
+
 # ----------------------------------------------------------------------------
 # app
 # ----------------------------------------------------------------------------
@@ -359,6 +374,10 @@ def maximum_workload():
                 with open(solution_file, "w") as file:
                     json.dump(current_solution, file, indent=2)
                 logger.log(f"Solution written at {solution_file}")
+                # get verbosity level
+                verbosity_level = convert_verbosity_level(
+                    data.get("verbosity_level", "INFO")
+                )
                 # initialize the optimizer configuration file
                 config = {
                     "ConfigFiles": [
@@ -375,7 +394,7 @@ def maximum_workload():
                     ],
                     "Lambda": None,
                     "Logger": {
-                        "priority": 2,
+                        "priority": verbosity_level,
                         "terminal_stream": True,
                         "file_stream": False,
                     }
@@ -483,6 +502,10 @@ def maximum_workload_json():
                     shutil.copyfile(
                         current_solution_file, solution_file
                     )
+                    # get verbosity level
+                    verbosity_level = convert_verbosity_level(
+                        data.get("verbosity_level", "INFO")
+                    )
                     # initialize the optimizer configuration file
                     config = {
                         "ConfigFiles": [system_file],
@@ -495,7 +518,7 @@ def maximum_workload_json():
                         ],
                         "Lambda": None,
                         "Logger": {
-                            "priority": 2,
+                            "priority": verbosity_level,
                             "terminal_stream": True,
                             "file_stream": False,
                         }
