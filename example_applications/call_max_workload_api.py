@@ -29,6 +29,11 @@ def parse_arguments() -> argparse.Namespace:
       action="store_true"
     )
     parser.add_argument(
+      "--aisprint",
+      default=False,
+      action="store_true"
+    )
+    parser.add_argument(
       "--application_dir", 
       help="Path to the application directory", 
       type=str
@@ -51,6 +56,12 @@ def parse_arguments() -> argparse.Namespace:
       type=float,
       default=None
     )
+    parser.add_argument(
+      "--verbosity_level", 
+      help="Verbosity level", 
+      type=str,
+      default="INFO"
+    )
     args, _ = parser.parse_known_args()
     return args
 
@@ -68,7 +79,8 @@ def main(args: argparse.Namespace):
     else:
         # define data
         sample_data = {
-          "application_dir": args.application_dir
+          "application_dir": args.application_dir,
+          "verbosity_level": args.verbosity_level
         }
         if args.min_load is not None:
             sample_data["lowerBoundLambda"] = args.min_load
@@ -77,7 +89,9 @@ def main(args: argparse.Namespace):
         if args.epsilon is not None:
             sample_data["epsilon"] = args.epsilon
         # send request
-        url = f"http://{API_URL}:{API_PORT}/space4air/workload/json"
+        url = f"http://{API_URL}:{API_PORT}/space4air/workload"
+        if not args.aisprint:
+            url += "/json"
         sample_result = requests.post(url = url, json = sample_data)
         print(sample_result)
         print(sample_result.json())
