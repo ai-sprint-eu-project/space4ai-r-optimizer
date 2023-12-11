@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
     - name: s4air-optimizer
-      image: aisprint/space4ai-r:23.06.08
+      image: aisprint/space4ai-r:23.12.11
       imagePullPolicy: Never
       command: [
         "python3", 
