@@ -29,6 +29,17 @@ RUN python3 -m pip install --upgrade pip
 COPY python_requirements.txt .
 RUN python3 -m pip install --no-cache-dir -r python_requirements.txt
 
+# define parser and logger url
+ENV GITLAB=https://gitlab.polimi.it
+ENV PARSER_URL=${GITLAB}/ai-sprint/space4ai-parser.git
+ENV LOGGER_URL=${GITLAB}/ai-sprint/space4ai-logger.git
+ENV PROJECT_ID=776
+ENV PARSER_DIR=external/space4ai_parser
+ENV LOGGER_DIR=external/space4ai_logger
+
+# install logger
+RUN git clone ${LOGGER_URL} ./${LOGGER_DIR}
+
 # load entrypoint code, maximum-workload webapp and dicotomic search code
 COPY s4ai-r-opt.py .
 COPY maximum_workload.py .
@@ -40,17 +51,6 @@ RUN mkdir s4ai-r-optimizer/BUILD && \
     cd s4ai-r-optimizer/BUILD && \
     cmake .. && \
     make -j4
-
-# define parser and logger url
-ENV GITLAB=https://gitlab.polimi.it
-ENV PARSER_URL=${GITLAB}/ai-sprint/space4ai-parser.git
-ENV LOGGER_URL=${GITLAB}/ai-sprint/space4ai-logger.git
-ENV PROJECT_ID=776
-ENV PARSER_DIR=external/space4ai_parser
-ENV LOGGER_DIR=external/space4ai_logger
-
-# install logger
-RUN git clone ${LOGGER_URL} ./${LOGGER_DIR}
 
 ############################################################################
 #			build image for development                        #
