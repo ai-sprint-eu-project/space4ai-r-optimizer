@@ -9,13 +9,16 @@ spec:
       imagePullPolicy: Never
       command: [
         "python3", 
-        "/mnt/test_webapi.py",
+        "/mnt/call_max_workload_api.py",
+        "--aisprint",
         "--application_dir",
         "blurry_faces_single_component_local_constraint/step_6",
         "--min_load",
         "0.008",
         "--max_load",
-        "0.34"
+        "0.34",
+        "--epsilon",
+        "0.001"
       ]
       env:
       # environment variables for amllibrary
