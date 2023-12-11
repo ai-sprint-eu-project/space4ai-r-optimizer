@@ -212,7 +212,6 @@ CoreBasedaMLLibraryPE::predict(
   features["regressor"] = this->regressor_file;
   features["df"] = nlohmann::json();
   features["df"]["cores"] = std::vector<size_t>({cores});
-  features["df"]["log(cores)"] = std::vector<double>({log2(cores)});
 
   // predict
   return this->predictor.predict(features);
