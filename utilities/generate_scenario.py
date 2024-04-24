@@ -113,7 +113,9 @@ def plot_application_graph(DAG: nx.DiGraph, plot_dir: str):
     # add node labels
     nx.draw_networkx_labels(DAG, pos, font_size=10, font_family="sans-serif")
     # add edge labels (weight)
-    e_labels = {(u, v): d["weight"] for (u, v, d) in DAG.edges(data=True)}
+    e_labels = {
+        (u, v): f"{d['weight']:.2f}" for (u, v, d) in DAG.edges(data=True)
+    }
     nx.draw_networkx_edge_labels(
       DAG, pos, edge_labels=e_labels, font_size=10, font_family="sans-serif"
     )
@@ -815,82 +817,84 @@ def generate_instance(
     system["DirectedAcyclicGraph"], DAG = generate_application_graph(
       n_components, seed
     )
-    logger.log("*done", 2)
-    # plot DAG
     plot_application_graph(DAG, instance_dir)
-    # generate components
-    logger.log("Generate components", 1)
-    max_n_deployments = config["max_n_deployments"]
-    max_n_partitions = config["max_n_partitions"]
-    min_data_size, max_data_size = config["data_size_range"]
-    system["Components"] = generate_components(
-      n_components,
-      max_n_deployments,
-      max_n_partitions,
-      system["DirectedAcyclicGraph"],
-      min_data_size,
-      max_data_size
-    )
     logger.log("*done", 2)
-    # generate resources
-    logger.log("Generate resources", 1)
-    system, faas_per_component, all_layers = generate_resources(system, config)
-    logger.log("*done", 2)
-    # generate compatibility and performance dictionaries
-    logger.log("Generate compatibility and performance dictionaries", 1)
-    system["CompatibilityMatrix"], system["Performance"] = generate_matrices(
-      system=system,
-      config=config,
-      faas_per_component=faas_per_component
-    )
-    logger.log("*done", 2)
-    # generate local constraints
-    logger.log("Generate local constraints", 1)
-    max_n_local_constraints = min(
-      config.get("max_n_local_constraints", 0),
-      n_components
-    )
-    local_threshold_range = config.get("local_threshold_range", [0., 0.])
-    all_demands = get_all_demands(system["Performance"])
-    system["LocalConstraints"] = generate_local_constraints(
-      DAG=DAG,
-      max_n_local_constraints=max_n_local_constraints,
-      local_threshold_range=local_threshold_range,
-      all_demands=all_demands
-    )
-    logger.log("*done", 2)
-    # generate global constraints
-    logger.log("Generate global constraints", 1)
-    max_n_global_constraints = config.get("max_n_global_constraints", 0)
-    global_threshold_range = config.get("global_threshold_range", [0., 0.])
-    constrain_whole_application = config.get(
-      "constrain_whole_application", False
-    )
-    system["GlobalConstraints"] = generate_global_constraints(
-      DAG=DAG,
-      max_n_global_constraints=max_n_global_constraints,
-      global_threshold_range=global_threshold_range,
-      all_demands=all_demands,
-      constrain_whole_application=constrain_whole_application
-    )
-    logger.log("*done", 2)
-    # generate network domains
-    logger.log("Generate network domains", 1)
-    network_technology = config["network_technology"]
-    system["NetworkTechnology"] = generate_network_domains(
-      network_technology=network_technology,
-      all_layers=all_layers
-    )
-    logger.log("*done", 2)
-    # read time and workload
-    logger.log("Read time and workload", 1)
-    system["Time"] = config["time"]
-    system["Lambda"] = config["lambda"]
-    logger.log("*done", 2)
-    # define system file
-    system_file = os.path.join(instance_dir, "SystemFile.json")
-    with open(system_file, "w") as ostream:
-        json.dump(system, ostream, indent=2)
+    if len(list(nx.selfloop_edges(DAG))) > 0:
+        logger.err("DAG has self-loops")
+    else:
+        # generate components
+        logger.log("Generate components", 1)
+        max_n_deployments = config["max_n_deployments"]
+        max_n_partitions = config["max_n_partitions"]
+        min_data_size, max_data_size = config["data_size_range"]
+        system["Components"] = generate_components(
+          n_components,
+          max_n_deployments,
+          max_n_partitions,
+          system["DirectedAcyclicGraph"],
+          min_data_size,
+          max_data_size
+        )
+        logger.log("*done", 2)
+        # generate resources
+        logger.log("Generate resources", 1)
+        system, faas_per_component, all_layers = generate_resources(system, config)
+        logger.log("*done", 2)
+        # generate compatibility and performance dictionaries
+        logger.log("Generate compatibility and performance dictionaries", 1)
+        system["CompatibilityMatrix"], system["Performance"] = generate_matrices(
+          system=system,
+          config=config,
+          faas_per_component=faas_per_component
+        )
+        logger.log("*done", 2)
+        # generate local constraints
+        logger.log("Generate local constraints", 1)
+        max_n_local_constraints = min(
+          config.get("max_n_local_constraints", 0),
+          n_components
+        )
+        local_threshold_range = config.get("local_threshold_range", [0., 0.])
+        all_demands = get_all_demands(system["Performance"])
+        system["LocalConstraints"] = generate_local_constraints(
+          DAG=DAG,
+          max_n_local_constraints=max_n_local_constraints,
+          local_threshold_range=local_threshold_range,
+          all_demands=all_demands
+        )
+        logger.log("*done", 2)
+        # generate global constraints
+        logger.log("Generate global constraints", 1)
+        max_n_global_constraints = config.get("max_n_global_constraints", 0)
+        global_threshold_range = config.get("global_threshold_range", [0., 0.])
+        constrain_whole_application = config.get(
+          "constrain_whole_application", False
+        )
+        system["GlobalConstraints"] = generate_global_constraints(
+          DAG=DAG,
+          max_n_global_constraints=max_n_global_constraints,
+          global_threshold_range=global_threshold_range,
+          all_demands=all_demands,
+          constrain_whole_application=constrain_whole_application
+        )
+        logger.log("*done", 2)
+        # generate network domains
+        logger.log("Generate network domains", 1)
+        network_technology = config["network_technology"]
+        system["NetworkTechnology"] = generate_network_domains(
+          network_technology=network_technology,
+          all_layers=all_layers
+        )
+        logger.log("*done", 2)
+        # read time and workload
+        logger.log("Read time and workload", 1)
+        system["Time"] = config["time"]
+        system["Lambda"] = config["lambda"]
+        logger.log("*done", 2)
+        # define system file
+        system_file = os.path.join(instance_dir, "SystemFile.json")
+        with open(system_file, "w") as ostream:
+            json.dump(system, ostream, indent=2)
     return system
 
 
