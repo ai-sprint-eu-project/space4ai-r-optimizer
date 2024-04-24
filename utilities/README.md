@@ -9,10 +9,12 @@ results post-processing.
 
 ### Docker image generation
 
+From the **base directory** `space4ai-r-optimizer`, run:
+
 ```
 IMG_NAME=aisprint/space4ai-r
 IMG_TAG=utilities
-docker build -t ${IMG_NAME}:${IMG_TAG} .
+docker build -t ${IMG_NAME}:${IMG_TAG} -f utilities/Dockerfile utilities
 ```
 
 ### Start the container
