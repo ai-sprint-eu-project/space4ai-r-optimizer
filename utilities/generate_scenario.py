@@ -89,7 +89,7 @@ def check_configuration(config: dict) -> Tuple[int, str]:
     return err_code, err
 
 
-def plot_application_graph(DAG: nx.DiGraph):
+def plot_application_graph(DAG: nx.DiGraph, plot_dir: str):
     # weight edges according to the attached probability
     elarge = [
       (u, v) for (u, v, d) in DAG.edges(data=True) if d["weight"] >= 0.5
@@ -122,7 +122,12 @@ def plot_application_graph(DAG: nx.DiGraph):
     ax.margins(0.1)
     plt.axis("off")
     plt.tight_layout()
-    plt.show()
+    plt.savefig(
+        os.path.join(plot_dir, "DAG.png"), 
+        dpi = 300,
+        format = "png",
+        bbox_inches = "tight"
+    )
 
 
 def generate_application_graph(
@@ -314,12 +319,9 @@ def generate_edge_cloud_resources(
     max_cost = resources_config["max_cost"]
     max_n_cores = resources_config["max_n_cores"]
     # randomly choose the number of resources per layer
-    all_n_resources = [1 for _ in range(n_layers)]
-    if max_n_resources > 1:
-        all_n_resources = [
-          item for item in range(2, max_n_resources+1)
-        ]
-    np.random.shuffle(all_n_resources)
+    all_n_resources = [
+        np.random.randint(1, max_n_resources+1) for _ in range(n_layers)
+    ]
     # loop over all layers
     resources = {}
     first_resource_idx = 1
@@ -814,7 +816,8 @@ def generate_instance(
       n_components, seed
     )
     logger.log("*done", 2)
-    # plot_application_graph(DAG)
+    # plot DAG
+    plot_application_graph(DAG, instance_dir)
     # generate components
     logger.log("Generate components", 1)
     max_n_deployments = config["max_n_deployments"]
