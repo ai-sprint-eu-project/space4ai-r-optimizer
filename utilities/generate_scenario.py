@@ -274,15 +274,15 @@ def generate_components(
           "s1": {"h1": first_partition}
         }
         # randomly choose the number of deployments
+        next_partition_idx = 2
         if max_n_deployments > 1:
             n_deployments = extract_random_int(1, max_n_deployments)
             # randomly choose the number of partitions per deployment
-            all_n_partitions = [1 for _ in range(n_deployments)]
-            if max_n_partitions > 1:
-                all_n_partitions = [
-                  item for item in range(2, max_n_partitions+1)
-                ]
-            np.random.shuffle(all_n_partitions)
+            all_n_partitions = [
+                extract_random_int(
+                    1, max_n_partitions
+                ) for _ in range(n_deployments)
+            ]
             # loop over deployments
             for s in range(2, n_deployments+1):
                 n_partitions = all_n_partitions.pop()
@@ -290,7 +290,7 @@ def generate_components(
                 partitions = {}
                 for h in range(1, n_partitions+1):
                     is_last_partition = (h == n_partitions)
-                    partitions[f"h{h}"] = generate_partition(
+                    partitions[f"h{next_partition_idx}"] = generate_partition(
                         component_name=component_name,
                         partition_idx=h,
                         DAG_dict=DAG_dict,
@@ -299,6 +299,7 @@ def generate_components(
                         is_last_component=is_last_component,
                         is_last_partition=is_last_partition
                     )
+                    next_partition_idx += 1
                 deployments[f"s{s}"] = partitions
         components[component_name] = deployments
     return components
@@ -322,7 +323,7 @@ def generate_edge_cloud_resources(
     max_n_cores = resources_config["max_n_cores"]
     # randomly choose the number of resources per layer
     all_n_resources = [
-        np.random.randint(1, max_n_resources+1) for _ in range(n_layers)
+        extract_random_int(1, max_n_resources) for _ in range(n_layers)
     ]
     # loop over all layers
     resources = {}
