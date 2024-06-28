@@ -91,6 +91,8 @@ class BasePerformanceModel
     /** virtual destructor */
     virtual ~BasePerformanceModel() = default;
 
+    bool support_meanTime_usage() const {return meanTime_usage_supported;}
+
   protected:
 
     /** Name of the model */
@@ -98,6 +100,10 @@ class BasePerformanceModel
 
     /** Boolean variable to determine whether colocation is allowed or not */
     const bool allows_colocation;
+
+    /** Boolean variable to determine whether the average job execution time 
+     * can be used to avoid the pipeline effect */
+    const bool meanTime_usage_supported = false;
 };
 
 /** Class to define queue-servers performance models for Edge and VM. */
@@ -441,6 +447,10 @@ class LambdaBasedaMLLibraryPE: public BasePerformanceModel
     virtual ~LambdaBasedaMLLibraryPE() = default;
 
   private:
+
+    /** Boolean variable to determine whether the average job execution time 
+     * can be used to avoid the pipeline effect */
+    const bool meanTime_usage_supported = true;
 
     /** Regressor file used by aMLLibrary for predictions */
     const std::string regressor_file;

@@ -34,8 +34,12 @@ SystemPE::compute_partition_perf(
 ) const
 {
   TimeType t = -1;
+  const auto& performance_comp = system.get_performance()[comp_idx];
+  bool meanTime_usage_supported = performance_comp[r_type_idx][p_idx][
+    r_idx
+  ]->support_meanTime_usage();
   
-  if (use_meanTime)
+  if (use_meanTime && meanTime_usage_supported)
   {
     Logger::Trace("Using meanTime for partition " + std::to_string(p_idx));
     t = job_mean_times[comp_idx][r_type_idx][p_idx][r_idx];
@@ -43,7 +47,6 @@ SystemPE::compute_partition_perf(
   else
   {
     Logger::Trace("Using models for partition " + std::to_string(p_idx));
-    const auto& performance_comp = system.get_performance()[comp_idx];
     t = performance_comp[r_type_idx][p_idx][r_idx]->predict(
       comp_idx, p_idx, ResTypeFromIdx(r_type_idx), r_idx,
       system.get_system_data(), solution_data
