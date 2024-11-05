@@ -760,6 +760,9 @@ Solution::global_constraints_check(const System& system, const LocalInfo& local_
   {
     time_perfs.compute_global_perf(i, system, solution_data, local_info);
 
+    const auto message = "---time: " + std::to_string(time_perfs.path_perfs[i]) + "; threshold: " + std::to_string(global_constraints[i].get_max_res_time());
+    Logger::Trace(message);
+
     if(std::isnan(time_perfs.path_perfs[i]) || time_perfs.path_perfs[i] > global_constraints[i].get_max_res_time())
     {
       feasible = false;
