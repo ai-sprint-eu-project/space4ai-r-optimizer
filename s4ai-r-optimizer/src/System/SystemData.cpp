@@ -523,7 +523,7 @@ SystemData::initialize_network_technology(
     Logger::Debug(debug_message);
     std::vector<std::string> cls_names;
 
-    for(const auto& cl : value.at("computationalLayers"))
+    for(const auto& cl : value.at("computationallayers"))
     {
       cls_names.push_back(cl.get<std::string>());
       this->cl_to_network_domains[cl.get<std::string>()].push_back(
