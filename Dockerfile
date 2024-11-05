@@ -1,5 +1,5 @@
 ############################################################################
-#			    define base image				   #
+#                            define base image                             #
 ############################################################################
 FROM ubuntu:20.04 AS base
 
@@ -53,9 +53,9 @@ RUN mkdir s4ai-r-optimizer/BUILD && \
     make -j4
 
 ############################################################################
-#			build image for development                        #
+#                       build image for development                        #
 ############################################################################
-FROM base as image-dev
+FROM base AS image-dev
 
 # copy the last change from your brach to invalidate the cache if there 
 # was a new change
@@ -70,9 +70,9 @@ RUN pip install --no-cache-dir -r ${PARSER_DIR}/requirements.txt
 CMD bash
 
 ############################################################################
-#			build image for production                         #
+#                       build image for production                         #
 ############################################################################
-FROM base as image-prod
+FROM base AS image-prod
 
 # define parser tag
 ARG PARSER_TAG=23.12.11
