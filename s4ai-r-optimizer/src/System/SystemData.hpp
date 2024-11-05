@@ -411,14 +411,23 @@ SystemData::initialize_resources<ResourceType::Faas>
         continue;
       }
 
-      // At this point I really have Faas resources
+      // resource description (if provided)
       std::string description = "No description available";
-
       if(res_data.contains("description"))
       {
         description = res_data.at("description").template get<std::string>();
       }
 
+      // maximum idle time before the function is killed (if provided)
+      TimeType idle_time_before_kill = Inf;
+      if(res_data.contains("idle_time_before_kill"))
+      {
+        idle_time_before_kill = res_data.at(
+          "idle_time_before_kill"
+        ).template get<TimeType>();
+      }
+
+      // construct the resource
       Resource<ResourceType::Faas> res(
         static_cast<std::string>(res_name),
         description,
@@ -426,7 +435,9 @@ SystemData::initialize_resources<ResourceType::Faas>
         res_data.at("cost").template get<double>(),
         res_data.at("memory").template get<double>(),
         transition_cost,
-        res_data.at("idle_time_before_kill").template get<double>());
+        idle_time_before_kill);
+
+      // add the resource to the appropriate containers
       this->res_name_to_type_and_idx.emplace(
         res_name,
         std::make_pair(ResourceType::Faas, res_idx));
