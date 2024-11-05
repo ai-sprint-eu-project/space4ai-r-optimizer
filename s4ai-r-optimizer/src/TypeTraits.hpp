@@ -164,6 +164,9 @@ using SelectedVMType =
 const auto NaN =
   std::numeric_limits<TimeType>::quiet_NaN();
 
+const double Inf =
+  std::numeric_limits<double>::infinity();
+
 /** Function that converts a ResourceType::member to its corresponding index
 *
 *   \param resType A ResourceType::member
