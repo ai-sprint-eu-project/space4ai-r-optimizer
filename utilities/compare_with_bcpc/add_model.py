@@ -90,7 +90,7 @@ def main(base_folder: str, n_components_list: list):
               )
               _ = update_system_file(os.path.join(instance_folder, filename))
   # write all thresholds
-  with open("thresholds.json", "w") as ostream:
+  with open(os.path.join(base_folder, "thresholds.json"), "w") as ostream:
     ostream.write(json.dumps(thresholds, indent = 2))
 
 
