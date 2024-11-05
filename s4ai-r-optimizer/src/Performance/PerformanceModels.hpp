@@ -317,11 +317,62 @@ class FaasPacsltkStaticPE: public FaasPE
     /** virtual destructor */
     virtual ~FaasPacsltkStaticPE() = default;
 
-  private:
+  protected:
 
     /** Demand time */
     TimeType demand;
 
+};
+
+/** Class to define FaaS pacsltk performance model (static version).
+*
+*   Class inherited from FaasPE. This class is very similar to FaasPacsltkPE, 
+*   but it computes the demand time once and for all, at construction time. 
+*   Thus, when the demand time is requested, the stored value is returned, 
+*   without the need of recoumputing the same value. Obviously, this model 
+*   can be used only under the assumption that the workload does not vary, 
+*   which is satisfied for design time problems.
+*/
+class FaasFixedPE: public FaasPE
+{
+  public:
+
+    /** FaasFixedPE constructor.
+    *
+    *   \param keyword_ Keyword (name) to identify the model to use
+    *   \param allows_colocation_ true if colocation is allowed
+    *   \param demandWarm_ Demand time when there is an active server 
+    *                      available on the platform
+    *   \param demandCold_ Demand time when all the servers on the platform 
+    *                      are down and a new one needs to be activated
+    *   \param idle_time_before_kill How long does the platform keep the 
+    *                                servers up after being idle
+    *   \param part_lambda Load factor of the Partition
+    */
+    FaasFixedPE(
+      const std::string& keyword_,
+      bool allows_colocation_,
+      TimeType demandWarm_,
+      TimeType demandCold_,
+      TimeType idle_time_before_kill,
+      LoadType part_lambda
+    );
+
+    /** Abstract method of BasePerformanceModel overridden. */
+    virtual
+    double predict(
+      size_t comp_idx, size_t part_idx, ResourceType res_type, size_t res_idx,
+      const SystemData& system_data,
+      const SolutionData& solution_data
+    ) const override;
+
+    /** virtual destructor */
+    virtual ~FaasFixedPE() = default;
+
+  protected:
+
+    /** Demand time */
+    TimeType demand;
 };
 
 /**

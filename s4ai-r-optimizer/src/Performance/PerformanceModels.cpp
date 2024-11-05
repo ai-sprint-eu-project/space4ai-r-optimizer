@@ -151,6 +151,31 @@ FaasPacsltkStaticPE::predict(
 }
 
 /**
+ * FaasFixedPE
+*/
+
+FaasFixedPE::FaasFixedPE(
+  const std::string& keyword_,
+  bool allows_colocation_,
+  TimeType demandWarm_,
+  TimeType demandCold_,
+  TimeType idle_time_before_kill,
+  LoadType part_lambda
+):
+  FaasPE(keyword_, allows_colocation_, demandWarm_, demandCold_),
+  demand(demandWarm_)
+{}
+
+TimeType
+FaasFixedPE::predict(
+  size_t, size_t, ResourceType, size_t,
+  const SystemData&, const SolutionData&
+) const
+{
+  return this->demand;
+}
+
+/**
  * FaasaMLLibraryPE
 */
 

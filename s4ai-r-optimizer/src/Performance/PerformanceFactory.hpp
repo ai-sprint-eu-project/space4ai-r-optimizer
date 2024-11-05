@@ -67,6 +67,14 @@ create_PE(
         system_data.get_component(comp_idx).get_partition(part_idx).get_part_lambda()
       );
   }
+  else if(model == "FAASFIXED")
+  {
+    return std::make_unique<FaasFixedPE>(
+        model, false, perf_json.at("demand").get<TimeType>(), perf_json.at("demand").get<TimeType>(),
+        system_data.get_all_resources().get_resource<ResourceType::Faas>(res_idx).get_idle_time_before_kill(),
+        system_data.get_component(comp_idx).get_partition(part_idx).get_part_lambda()
+      );
+  }
   else if(model == "AMLFAAS" || model == "MLLIBfaas")
   {
     return std::make_unique<FaasaMLLibraryPE>(
