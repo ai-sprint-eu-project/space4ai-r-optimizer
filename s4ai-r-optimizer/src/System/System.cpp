@@ -157,7 +157,11 @@ System::initialize_performance(const nl::json& performance_json)
         {
           // get performance model and average execution time
           const std::string model = perf_data.at("model").get<std::string>();
-          const TimeType meanTime = perf_data.at("meanTime").get<TimeType>();
+          TimeType meanTime = Inf;
+          if (perf_data.contains("meanTime"))
+          {
+            meanTime = perf_data.at("meanTime").get<TimeType>();
+          }
 
           msg.str("");
           msg << "** Current component has model " << model 
