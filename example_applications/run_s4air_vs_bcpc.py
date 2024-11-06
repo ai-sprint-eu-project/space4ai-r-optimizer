@@ -15,6 +15,7 @@ Copyright 2021 AI-SPRINT
 """
 from typing import Tuple
 from parse import parse
+from tqdm import tqdm
 import argparse
 import json
 import os
@@ -99,7 +100,7 @@ def write_config_file(base_folder: str, config: dict):
   return config_file
 
 
-def main(base_folder: str, n_components_list: list, n_instances: int):
+def main(base_folder: str, n_components_list: list, n_instances: str):
   # load thresholds
   all_thresholds = load_thresholds(
     os.path.join(base_folder, "thresholds.json")
@@ -111,13 +112,13 @@ def main(base_folder: str, n_components_list: list, n_instances: int):
     if int(parse("{}Components", scenario)[0]) in n_components_list:
       print(f"Scenario: {scenario}")
       # loop over all instances
+      n_instances = int(n_instances) if n_instances != "all" else len(instances)
       for instance, thresholds in instances.items():
         if int(parse("Ins{}", instance)[0]) < n_instances:
           print(f"  Instance: {instance}")
           instance_folder = os.path.join(base_folder, scenario, instance)
           # loop over all thresholds
-          for threshold in thresholds:
-            print(f"    threshold: {threshold}")
+          for threshold in tqdm(thresholds):
             # write configuration file
             config, log_file = update_config(instance_folder, threshold)
             config_file = write_config_file(base_folder, config)
@@ -143,6 +144,4 @@ if __name__ == "__main__":
   base_folder = args.application_dir
   n_components_list = args.n_components
   n_instances = args.n_instances
-  if str(n_instances) != "all":
-    n_instances = int(n_instances)
   main(base_folder, n_components_list, n_instances)
