@@ -18,6 +18,7 @@ from parse import parse
 import pandas as pd
 import numpy as np
 import argparse
+import json
 import os
 
 
@@ -26,7 +27,7 @@ def parse_arguments() -> argparse.Namespace:
   Parse input arguments
   """
   parser = argparse.ArgumentParser(
-    description="Add model to BCPC input files"
+    description="Load BCPC results"
   )
   parser.add_argument(
     "--application_dir", 
@@ -57,7 +58,7 @@ def rescale(
   return out_min + (val - in_min) * ((out_max - out_min) / (in_max - in_min))
 
 
-def load_instance_result(
+def load_bcpc_result(
     instance_folder: str, n_components: int, instance_id: int
   ) -> pd.DataFrame:
   results = {}
@@ -92,8 +93,44 @@ def load_instance_result(
   return results
 
 
-def load_bcpc_results(
-    base_folder: str, n_components_list: list
+def load_s4air_result(
+    instance_folder: str, n_components: int, instance_id: int
+  ) -> pd.DataFrame:
+  results = {}
+  # loop over all files
+  for filename in os.listdir(instance_folder):
+    if filename.startswith("s4air_solution_"):
+      # get the constraint threshold
+      tokens = filename.split("_")
+      key = "_".join(tokens[1:-1])
+      threshold = int(tokens[-1].split(".")[0])
+      if threshold not in results:
+        results[threshold] = {}
+      # load result
+      res_dict = {}
+      with open(os.path.join(instance_folder, filename), "r") as istream:
+        res_dict = json.load(istream)
+      # save relevant information
+      results[threshold]["cost"] = res_dict.get("total_cost", np.inf)
+  # build dataframe
+  results = pd.DataFrame(results).transpose().sort_index()
+  for c in results.columns:
+    if "mem" not in c:
+      results[c] = results[c].astype("float")
+    else:
+      results[c] = [
+        {k: int(v) for k, v in d.item().items()} for d in results[c]
+      ]
+  # rename index column
+  results.index.name = "original_threshold"
+  # add number of components and instance id
+  results["n_components"] = [n_components] * len(results)
+  results["instance"] = [instance_id] * len(results)
+  return results
+
+
+def load_all_results(
+    base_folder: str, n_components_list: list, method: str
   ) -> pd.DataFrame:
   all_results = pd.DataFrame()
   # loop over scenarios (number of components)
@@ -109,9 +146,15 @@ def load_bcpc_results(
         print(f"  processing instance {instance_id}")
         # load instance results
         instance_folder = os.path.join(scenario_folder, foldername)
-        instance_results = load_instance_result(
-          instance_folder, n_components, instance_id
-        )
+        instance_results = None
+        if method == "bcpc":
+          instance_results = load_bcpc_result(
+            instance_folder, n_components, instance_id
+          )
+        elif method == "s4air":
+          instance_results = load_s4air_result(
+            instance_folder, n_components, instance_id
+          )
         # merge results
         all_results = pd.concat([all_results, instance_results])
   return all_results
@@ -134,11 +177,12 @@ def normalize_threshold(all_data: pd.DataFrame) -> pd.DataFrame:
   return all_results
 
 
-def plot_bcpc_results(
+def plot_method_results(
     all_results: pd.DataFrame, 
     n_components_list: list, 
     xcol: str, 
     xlabel: str,
+    method: str,
     plot_folder: str = None
   ):
   _, axs = plt.subplots(
@@ -177,7 +221,7 @@ def plot_bcpc_results(
   axs[0].set_ylabel("Cost", fontsize = 14)
   if plot_folder is not None:
     plt.savefig(
-      os.path.join(plot_folder, "bcpc_results.png"),
+      os.path.join(plot_folder, f"{method}_results.png"),
       dpi = 300,
       format = "png",
       bbox_inches = "tight"
@@ -188,17 +232,31 @@ def plot_bcpc_results(
 
 
 def main(base_folder: str, n_components_list: list):
-  # load BCPC results
-  all_results = load_bcpc_results(base_folder, n_components_list)
+  # load BCPC and SPACE4AI-R results
+  all_bcpc_results = load_all_results(base_folder, n_components_list, "bcpc")
+  all_bcpc_results["method"] = ["BCPC"] * len(all_bcpc_results)
+  all_s4air_results = load_all_results(base_folder, n_components_list, "s4air")
+  all_s4air_results["method"] = ["SPACE4AI-R"] * len(all_s4air_results)
   # normalize the threshold values
-  all_results = normalize_threshold(all_results)
-  all_results.to_csv(os.path.join(base_folder, "bcpc_results.csv"))
+  all_bcpc_results = normalize_threshold(all_bcpc_results)
+  all_bcpc_results.to_csv(os.path.join(base_folder, "bcpc_results.csv"))
+  all_s4air_results = normalize_threshold(all_s4air_results)
+  all_s4air_results.to_csv(os.path.join(base_folder, "s4air_results.csv"))
   # plot
-  plot_bcpc_results(
-    all_results, 
+  plot_method_results(
+    all_bcpc_results, 
     n_components_list, 
     "threshold", 
     "Global constraint threshold",
+    "bcpc",
+    base_folder
+  )
+  plot_method_results(
+    all_s4air_results, 
+    n_components_list, 
+    "threshold", 
+    "Global constraint threshold",
+    "s4air",
     base_folder
   )
 
