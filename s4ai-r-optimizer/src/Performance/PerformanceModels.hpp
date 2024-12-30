@@ -366,6 +366,14 @@ class FaasFixedPE: public FaasPE
       const SolutionData& solution_data
     ) const override;
 
+    /** demandWarm getter */
+    TimeType
+    get_demandWarm() const override {return demand; }
+
+    /** demandWarm getter */
+    TimeType
+    get_demandCold() const override {return demand; }
+
     /** virtual destructor */
     virtual ~FaasFixedPE() = default;
 
