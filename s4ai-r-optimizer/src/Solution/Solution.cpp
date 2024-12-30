@@ -756,17 +756,38 @@ Solution::global_constraints_check(const System& system, const LocalInfo& local_
   bool feasible = true;
   const auto& global_constraints = system.get_system_data().get_global_constraints();
 
+  TimeType total_time = 0.0;
+  TimeType max_threshold = 0.0;
   for(size_t i = 0; i < global_constraints.size() && feasible; ++i)
   {
     time_perfs.compute_global_perf(i, system, solution_data, local_info);
+    max_threshold = (
+      global_constraints[0].get_max_res_time() > max_threshold
+    ) ? global_constraints[0].get_max_res_time() : max_threshold;
 
-    const auto message = "---time: " + std::to_string(time_perfs.path_perfs[i]) + "; threshold: " + std::to_string(global_constraints[i].get_max_res_time());
-    Logger::Trace(message);
-
-    if(std::isnan(time_perfs.path_perfs[i]) || time_perfs.path_perfs[i] > global_constraints[i].get_max_res_time())
+    if(std::isnan(time_perfs.path_perfs[i]))
     {
       feasible = false;
     }
+    else
+    {
+      total_time += time_perfs.path_perfs[i];
+    }
+
+    const auto message =  "---time: " + 
+                          std::to_string(time_perfs.path_perfs[i]) + 
+                          "; total_time: " + 
+                          std::to_string(total_time) + 
+                          "; threshold: " + 
+                          std::to_string(
+                            global_constraints[i].get_max_res_time()
+                          );
+    Logger::Trace(message);
+  }
+
+  if (total_time > max_threshold)
+  {
+    feasible = false;
   }
 
   Logger::Debug("check_feasibility: DONE global constraints ...");
@@ -847,9 +868,6 @@ Solution::objective_function(const System& system, const LocalInfo& local_info)
   const auto& components = system.get_system_data().get_components();
   const auto& performance = system.get_performance();
 
-  const TimeType time = system.get_system_data().get_time();
-  const double energy_cost_pct = system.get_system_data().get_energy_cost_pct();
-
   // reset costs
   for(
     size_t res_type_idx = 0; 
@@ -887,61 +905,56 @@ Solution::objective_function(const System& system, const LocalInfo& local_info)
 
         if(!local_info.active || local_info.modified_res[res_type_idx][res_idx])
         {
-          if(res_type_idx == ResIdxFromType(ResourceType::Edge))  // Edge
+          if(
+            (res_type_idx == ResIdxFromType(ResourceType::Edge))  || // Edge
+            (res_type_idx == ResIdxFromType(ResourceType::VM)) // Cloud
+          )
           {
-            const auto res_cost = all_resources.get_resource<ResourceType::Edge>(
-              res_idx
-            ).get_cost();
-            this->res_costs[res_type_idx][
-              res_idx
-            ] = solution_data.n_used_resources[res_type_idx][res_idx] * 
-                res_cost * 
-                time * 
-                energy_cost_pct;
-            total_cost += this->res_costs[res_type_idx][res_idx];
+            throw std::runtime_error("Only FaaS resources are expected!");
           }
-          else if(res_type_idx == ResIdxFromType(ResourceType::VM)) // Cloud
+          else // only Faas resources are expected!
           {
-            const auto res_cost = all_resources.get_resource<ResourceType::VM>(
-              res_idx
-            ).get_cost();
-            this->res_costs[res_type_idx][
-              res_idx
-            ] = solution_data.n_used_resources[res_type_idx][res_idx] * 
-                res_cost * 
-                time;
-            total_cost += this->res_costs[res_type_idx][res_idx];
-          }
-          else // Faas
-          {
+            // resource cost
             const auto res_cost = all_resources.get_resource<ResourceType::Faas>(
               res_idx
             ).get_cost();
-            // ATTENTO: LORO USANO COMP_LAMBDA... SECONDO ME E' GIUSTO 
-            // PART_LAMBDA INVECE
+
+            // partition workload
             const auto part_lambda = components[comp_idx].get_partition(
               part_idx
             ).get_part_lambda();
-            const auto warm_time =
-              static_cast<FaasPE*>(
+
+            // price per request
+            const double ppr = 0.0000002;
+
+            // demand (warm \equiv cold \equiv D)
+            const TimeType demand = 
+              static_cast<FaasFixedPE*>(
                 performance[comp_idx][res_type_idx][part_idx][res_idx].get()
               )->get_demandWarm();
+
+            // compute cost
             this->res_costs[res_type_idx][
               res_idx
-            ] = res_cost * warm_time * part_lambda * time;
-            total_cost += this->res_costs[res_type_idx][res_idx];
+            ] = (res_cost * std::ceil(demand/100) + ppr) * part_lambda;
+            
+            this->total_cost += this->res_costs[res_type_idx][res_idx];
           }
         }
         else
         {
-          total_cost += res_costs[res_type_idx][res_idx];
+          this->total_cost += res_costs[res_type_idx][res_idx];
         }
       }
     }
   }
 
-  Logger::Debug("objective_function: Done computation of objective function!");
-  return total_cost;
+  this->total_cost *= 1e6;
+  Logger::Debug(
+    "objective_function: Done computation of objective function --> " + 
+    std::to_string(this->total_cost)
+  );
+  return this->total_cost;
 }
 
 

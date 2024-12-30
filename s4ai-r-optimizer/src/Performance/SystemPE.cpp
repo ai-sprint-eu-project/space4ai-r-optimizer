@@ -188,81 +188,31 @@ SystemPE::compute_global_perf(
   path_perfs[path_idx] = 0.0;
   const auto& comp_idxs = global_constraint.get_comp_idxs();
 
+  const auto& all_prob = system.get_system_data().get_dag().get_dag_matrix();
+  ProbType coeff = 1.0;
+
   for(size_t i = 0; i < comp_idxs.size() - 1; ++i)
   {
     path_perfs[path_idx] += compute_local_perf(
       comp_idxs[i], system, solution_data, local_info, true
     );
     
-    //DELAYS
+    // TRANSITION PROBABILITY
     // get the indices of the current and the next component
     const auto curr_comp_idx = comp_idxs[i];
     const auto next_comp_idx = comp_idxs[i + 1];
+    ProbType transition_probability = all_prob[curr_comp_idx][next_comp_idx];
 
-    // used resources
-    const auto& used_resources = solution_data.get_used_resources();
-    
-    // resource index last partition
-    const size_t curr_comp_last_part_idx = std::get<0>(
-      used_resources[curr_comp_idx].back()
-    );
-    
-    //resource index of the first partition
-    const auto [next_comp_first_part_idx, res2_type_idx, res2_idx] =
-      *(used_resources[next_comp_idx].cbegin());
-
-    // data size
-    const auto& curr_comp = system.get_system_data().get_component(
-      curr_comp_idx
-    );
-    const auto data_size = curr_comp.get_partition(
-      curr_comp_last_part_idx
-    ).get_next_data_sizes().at(next_comp_idx);
-
-    // loop over used resources
-    const auto& comp_partitions = system.get_system_data().get_component(
-      curr_comp_idx
-    ).get_partitions();
-    TimeType delay_total_time = 0.0;
-    ProbType transition_probability = 1;
-    for(size_t p = 0; p < used_resources[curr_comp_idx].size() - 1; ++p)
-    {
-      const auto [p_idx,res1_type_idx,res1_idx] = used_resources[curr_comp_idx][p];
-      if(res1_type_idx != res2_type_idx || res1_idx != res2_idx)
-      {
-        const ProbType early_exit_probability = comp_partitions[
-          p_idx
-        ].get_early_exit_probability();
-        delay_total_time += (
-          transition_probability * early_exit_probability * compute_network_delay(
-            ResTypeFromIdx(res1_type_idx), res1_idx,
-            ResTypeFromIdx(res2_type_idx), res2_idx,
-            data_size, system
-          )
-        );
-        transition_probability *= (1 - early_exit_probability);
-      }
-    }
-
-    // last partition delay
-    const auto [p_idx,res1_type_idx,res1_idx] = used_resources[
-      curr_comp_idx
-    ].back();
-    if(res1_type_idx != res2_type_idx || res1_idx != res2_idx)
-    {
-      delay_total_time += transition_probability * compute_network_delay(
-          ResTypeFromIdx(res1_type_idx), res1_idx,
-          ResTypeFromIdx(res2_type_idx), res2_idx,
-          data_size, system
-        );
-    }
-    path_perfs[path_idx] += delay_total_time;
+    coeff *= transition_probability;
   }
   
   // last component
   path_perfs[path_idx] += compute_local_perf(
     comp_idxs.back(), system, solution_data, local_info, false
   );
+
+  // multiply by coefficient
+  path_perfs[path_idx] *= coeff;
 }
 
 TimeType
