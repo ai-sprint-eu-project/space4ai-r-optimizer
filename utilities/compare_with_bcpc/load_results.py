@@ -13,6 +13,7 @@ Copyright 2021 AI-SPRINT
  See the License for the specific language governing permissions and
  limitations under the License.
 """
+from matplotlib import colors as mcolors
 import matplotlib.pyplot as plt
 from parse import parse
 import pandas as pd
@@ -231,6 +232,85 @@ def plot_method_results(
     plt.show()
 
 
+def plot_comparison(
+    baseline_results: pd.DataFrame, 
+    method_results: pd.DataFrame, 
+    n_components_list: list, 
+    plot_folder: str = None
+  ):
+  _, axs = plt.subplots(
+    nrows = 1, ncols = len(n_components_list), sharey = True, figsize = (25, 5)
+  )
+  for idx, n_components in enumerate(n_components_list):
+    b_res = baseline_results[baseline_results["n_components"] == n_components]
+    m_res = method_results[method_results["n_components"] == n_components]
+    # compute average and standard deviation
+    b_res_avg = b_res.groupby("exp_id").mean(numeric_only = True)[
+      ["threshold", "cost"]
+    ]
+    b_res_avg["std"] = b_res.groupby("exp_id").std(numeric_only = True)["cost"]
+    b_res_avg["n"] = b_res.groupby("exp_id").count()["cost"]
+    m_res_avg = m_res.groupby("exp_id").mean(numeric_only = True)[
+      ["threshold", "cost"]
+    ]
+    m_res_avg["std"] = m_res.groupby("exp_id").std(numeric_only = True)["cost"]
+    m_res_avg["n"] = m_res.groupby("exp_id").count()["cost"]
+    # plot
+    b_res_avg.plot(
+      x = "threshold",
+      y = "cost",
+      label = "BCPC",
+      ax = axs[idx],
+      grid = True,
+      fontsize = 14,
+      marker = ".",
+      markersize = 5,
+      linewidth = 1,
+      color = mcolors.TABLEAU_COLORS["tab:blue"]
+    )
+    m_res_avg.plot(
+      x = "threshold",
+      y = "cost",
+      label = "S4AIR",
+      ax = axs[idx],
+      grid = True,
+      fontsize = 14,
+      marker = ".",
+      markersize = 5,
+      linewidth = 1,
+      color = mcolors.TABLEAU_COLORS["tab:orange"]
+    )
+    # confidence intervals
+    axs[idx].fill_between(
+      x = b_res_avg["threshold"],
+      y1 = b_res_avg["cost"] - 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
+      y2 = b_res_avg["cost"] + 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
+      alpha = 0.4,
+      color = mcolors.TABLEAU_COLORS["tab:blue"]
+    )
+    axs[idx].fill_between(
+      x = m_res_avg["threshold"],
+      y1 = m_res_avg["cost"] - 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
+      y2 = m_res_avg["cost"] + 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
+      alpha = 0.3,
+      color = mcolors.TABLEAU_COLORS["tab:orange"]
+    )
+    # add axis info
+    axs[idx].set_xlabel("Global constraint threshold", fontsize = 14)
+    axs[idx].set_title(f"{n_components} components", fontsize = 14)
+  axs[0].set_ylabel("Cost", fontsize = 14)
+  if plot_folder is not None:
+    plt.savefig(
+      os.path.join(plot_folder, f"comparison.png"),
+      dpi = 300,
+      format = "png",
+      bbox_inches = "tight"
+    )
+    plt.close()
+  else:
+    plt.show()
+
+
 def main(base_folder: str, n_components_list: list):
   # load BCPC and SPACE4AI-R results
   all_bcpc_results = load_all_results(base_folder, n_components_list, "bcpc")
@@ -259,10 +339,19 @@ def main(base_folder: str, n_components_list: list):
     "s4air",
     base_folder
   )
+  # plot comparison
+  plot_comparison(
+    all_bcpc_results, 
+    all_s4air_results, 
+    n_components_list, 
+    base_folder
+  )
 
 
 if __name__ == "__main__":
-  args = parse_arguments()
-  base_folder = args.application_dir
-  n_components_list = args.n_components
+  # args = parse_arguments()
+  # base_folder = args.application_dir
+  # n_components_list = args.n_components
+  base_folder = "/Users/federicafilippini/Documents/TEMP/20241230_S4AIRvsBCPC/large_scale"
+  n_components_list = [7, 10, 15]
   main(base_folder, n_components_list)
