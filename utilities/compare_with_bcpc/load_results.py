@@ -182,9 +182,12 @@ def plot_method_results(
     all_results: pd.DataFrame, 
     n_components_list: list, 
     xcol: str, 
+    ycol: str,
     xlabel: str,
+    ylabel: str,
     method: str,
-    plot_folder: str = None
+    plot_folder: str = None,
+    logy: bool = False
   ):
   _, axs = plt.subplots(
     nrows = 1, ncols = len(n_components_list), sharey = True, figsize = (25, 5)
@@ -195,7 +198,7 @@ def plot_method_results(
     for instance_id, data in results.groupby("instance"):
       data.plot(
         x = xcol,
-        y = "cost",
+        y = ycol,
         label = f"Ins{instance_id}",
         ax = axs[idx],
         grid = True,
@@ -203,26 +206,28 @@ def plot_method_results(
         marker = ".",
         markersize = 5,
         linewidth = 1,
-        alpha = 0.7
+        alpha = 0.7,
+        logy = logy
       )
     # plot average
     results.groupby("exp_id").mean(numeric_only = True).plot(
       x = xcol,
-      y = "cost",
+      y = ycol,
       label = "average",
       color = "k",
       ax = axs[idx],
       grid = True,
       fontsize = 14,
-      linewidth = 3
+      linewidth = 3,
+      logy = logy
     )
     # add axis info
     axs[idx].set_xlabel(xlabel, fontsize = 14)
     axs[idx].set_title(f"{n_components} components", fontsize = 14)
-  axs[0].set_ylabel("Cost", fontsize = 14)
+  axs[0].set_ylabel(ylabel, fontsize = 14)
   if plot_folder is not None:
     plt.savefig(
-      os.path.join(plot_folder, f"{method}_results.png"),
+      os.path.join(plot_folder, f"{method}_{ycol}.png"),
       dpi = 300,
       format = "png",
       bbox_inches = "tight"
@@ -301,7 +306,7 @@ def plot_comparison(
   axs[0].set_ylabel("Cost", fontsize = 14)
   if plot_folder is not None:
     plt.savefig(
-      os.path.join(plot_folder, f"comparison.png"),
+      os.path.join(plot_folder, "comparison.png"),
       dpi = 300,
       format = "png",
       bbox_inches = "tight"
@@ -327,7 +332,9 @@ def main(base_folder: str, n_components_list: list):
     all_bcpc_results, 
     n_components_list, 
     "threshold", 
+    "cost",
     "Global constraint threshold",
+    "Cost",
     "bcpc",
     base_folder
   )
@@ -335,7 +342,9 @@ def main(base_folder: str, n_components_list: list):
     all_s4air_results, 
     n_components_list, 
     "threshold", 
+    "cost",
     "Global constraint threshold",
+    "Cost",
     "s4air",
     base_folder
   )
@@ -346,12 +355,22 @@ def main(base_folder: str, n_components_list: list):
     n_components_list, 
     base_folder
   )
+  # plot method runtime
+  plot_method_results(
+    all_bcpc_results, 
+    n_components_list, 
+    "threshold", 
+    "exec_time",
+    "Global constraint threshold",
+    "Method runtime (s)",
+    "bcpc",
+    plot_folder = base_folder,
+    logy = True
+  )
 
 
 if __name__ == "__main__":
-  # args = parse_arguments()
-  # base_folder = args.application_dir
-  # n_components_list = args.n_components
-  base_folder = "/Users/federicafilippini/Documents/TEMP/20241230_S4AIRvsBCPC/large_scale"
-  n_components_list = [7, 10, 15]
+  args = parse_arguments()
+  base_folder = args.application_dir
+  n_components_list = args.n_components
   main(base_folder, n_components_list)
