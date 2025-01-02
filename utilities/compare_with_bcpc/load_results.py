@@ -15,6 +15,7 @@ Copyright 2021 AI-SPRINT
 """
 from matplotlib import colors as mcolors
 import matplotlib.pyplot as plt
+from datetime import datetime
 from parse import parse
 import pandas as pd
 import numpy as np
@@ -156,9 +157,60 @@ def load_all_results(
           instance_results = load_s4air_result(
             instance_folder, n_components, instance_id
           )
+          instance_logs = parse_s4air_logs(
+            instance_folder, n_components, instance_id
+          )
+          if len(instance_results) > 0 and len(instance_logs) > 0:
+            instance_results = instance_results.join(
+              instance_logs[["exec_time", "status"]]
+            )
         # merge results
         all_results = pd.concat([all_results, instance_results])
   return all_results
+
+
+def parse_s4air_logs(
+    instance_folder: str, n_components: int, instance_id: int
+  ) -> pd.DataFrame:
+  exec_times = {}
+  # loop over all files
+  for filename in os.listdir(instance_folder):
+    if filename.startswith("s4air_") and filename.endswith(".log"):
+      # get the constraint threshold
+      tokens = filename.split("_")
+      threshold = int(tokens[-1].split(".")[0])
+      if threshold not in exec_times:
+        exec_times[threshold] = {}
+      # parse log
+      exec_time = np.inf
+      status = "ERROR"
+      with open(os.path.join(instance_folder, filename), "r") as istream:
+        lines = istream.readlines()
+        # start time
+        start, _ = parse(
+          "{}	[Info]	****** READING CONFIGURATION FILE: {} ... ******\n",
+          lines[0]
+        )
+        start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
+        # finish time
+        end, status, _ = parse("{}	[Info]	{} at: {}\n", lines[-2])
+        end = datetime.strptime(end, "%Y-%m-%d %H:%M:%S")
+        # duration
+        exec_time = (end - start).total_seconds()
+      # save relevant information
+      exec_times[threshold]["exec_time"] = float(exec_time)
+      exec_times[threshold]["status"] = status
+  # build dataframe
+  exec_times = pd.DataFrame(exec_times).transpose().sort_index()
+  for c in exec_times.columns:
+    if "status" not in c:
+      exec_times[c] = exec_times[c].astype("float")
+  # rename index column
+  exec_times.index.name = "original_threshold"
+  # add number of components and instance id
+  exec_times["n_components"] = [n_components] * len(exec_times)
+  exec_times["instance"] = [instance_id] * len(exec_times)
+  return exec_times
 
 
 def normalize_threshold(all_data: pd.DataFrame) -> pd.DataFrame:
@@ -241,7 +293,10 @@ def plot_comparison(
     baseline_results: pd.DataFrame, 
     method_results: pd.DataFrame, 
     n_components_list: list, 
-    plot_folder: str = None
+    ycol: str,
+    ylabel: str,
+    plot_folder: str = None,
+    logy: bool = False
   ):
   _, axs = plt.subplots(
     nrows = 1, ncols = len(n_components_list), sharey = True, figsize = (25, 5)
@@ -251,19 +306,19 @@ def plot_comparison(
     m_res = method_results[method_results["n_components"] == n_components]
     # compute average and standard deviation
     b_res_avg = b_res.groupby("exp_id").mean(numeric_only = True)[
-      ["threshold", "cost"]
+      ["threshold", ycol]
     ]
-    b_res_avg["std"] = b_res.groupby("exp_id").std(numeric_only = True)["cost"]
-    b_res_avg["n"] = b_res.groupby("exp_id").count()["cost"]
+    b_res_avg["std"] = b_res.groupby("exp_id").std(numeric_only = True)[ycol]
+    b_res_avg["n"] = b_res.groupby("exp_id").count()[ycol]
     m_res_avg = m_res.groupby("exp_id").mean(numeric_only = True)[
-      ["threshold", "cost"]
+      ["threshold", ycol]
     ]
-    m_res_avg["std"] = m_res.groupby("exp_id").std(numeric_only = True)["cost"]
-    m_res_avg["n"] = m_res.groupby("exp_id").count()["cost"]
+    m_res_avg["std"] = m_res.groupby("exp_id").std(numeric_only = True)[ycol]
+    m_res_avg["n"] = m_res.groupby("exp_id").count()[ycol]
     # plot
     b_res_avg.plot(
       x = "threshold",
-      y = "cost",
+      y = ycol,
       label = "BCPC",
       ax = axs[idx],
       grid = True,
@@ -271,11 +326,12 @@ def plot_comparison(
       marker = ".",
       markersize = 5,
       linewidth = 1,
-      color = mcolors.TABLEAU_COLORS["tab:blue"]
+      color = mcolors.TABLEAU_COLORS["tab:blue"],
+      logy = logy
     )
     m_res_avg.plot(
       x = "threshold",
-      y = "cost",
+      y = ycol,
       label = "S4AIR",
       ax = axs[idx],
       grid = True,
@@ -283,30 +339,31 @@ def plot_comparison(
       marker = ".",
       markersize = 5,
       linewidth = 1,
-      color = mcolors.TABLEAU_COLORS["tab:orange"]
+      color = mcolors.TABLEAU_COLORS["tab:orange"],
+      logy = logy
     )
     # confidence intervals
     axs[idx].fill_between(
       x = b_res_avg["threshold"],
-      y1 = b_res_avg["cost"] - 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
-      y2 = b_res_avg["cost"] + 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
+      y1 = b_res_avg[ycol] - 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
+      y2 = b_res_avg[ycol] + 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
       alpha = 0.4,
       color = mcolors.TABLEAU_COLORS["tab:blue"]
     )
     axs[idx].fill_between(
       x = m_res_avg["threshold"],
-      y1 = m_res_avg["cost"] - 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
-      y2 = m_res_avg["cost"] + 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
+      y1 = m_res_avg[ycol] - 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
+      y2 = m_res_avg[ycol] + 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
       alpha = 0.3,
       color = mcolors.TABLEAU_COLORS["tab:orange"]
     )
     # add axis info
     axs[idx].set_xlabel("Global constraint threshold", fontsize = 14)
     axs[idx].set_title(f"{n_components} components", fontsize = 14)
-  axs[0].set_ylabel("Cost", fontsize = 14)
+  axs[0].set_ylabel(ylabel, fontsize = 14)
   if plot_folder is not None:
     plt.savefig(
-      os.path.join(plot_folder, "comparison.png"),
+      os.path.join(plot_folder, f"{ycol}_comparison.png"),
       dpi = 300,
       format = "png",
       bbox_inches = "tight"
@@ -353,6 +410,8 @@ def main(base_folder: str, n_components_list: list):
     all_bcpc_results, 
     all_s4air_results, 
     n_components_list, 
+    "cost",
+    "Cost",
     base_folder
   )
   # plot method runtime
@@ -364,6 +423,27 @@ def main(base_folder: str, n_components_list: list):
     "Global constraint threshold",
     "Method runtime (s)",
     "bcpc",
+    plot_folder = base_folder,
+    logy = True
+  )
+  plot_method_results(
+    all_s4air_results, 
+    n_components_list, 
+    "threshold", 
+    "exec_time",
+    "Global constraint threshold",
+    "Method runtime (s)",
+    "s4air",
+    plot_folder = base_folder,
+    logy = True
+  )
+  # plot runtime comparison
+  plot_comparison(
+    all_bcpc_results, 
+    all_s4air_results, 
+    n_components_list, 
+    "exec_time",
+    "Runtime (s)",
     plot_folder = base_folder,
     logy = True
   )
