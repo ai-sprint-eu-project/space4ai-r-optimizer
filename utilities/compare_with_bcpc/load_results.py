@@ -278,6 +278,23 @@ def plot_method_results(
       linewidth = 3,
       logy = logy
     )
+    # add Xs for unfeasible runs
+    unfeasible = results[
+      results["cost"] == np.inf # "Unfeasible solution saved"
+    ].copy(deep = True)
+    if len(unfeasible) > 0:
+      unfeasible["y"] = [
+        results.drop(unfeasible.index)[ycol].max()
+      ] * len(unfeasible)
+      unfeasible.plot.scatter(
+        x = "threshold",
+        y = "y",
+        marker = "*",
+        s = 50,
+        color = mcolors.TABLEAU_COLORS["tab:red"],
+        grid = True,
+        ax = ax
+      )
     # add axis info
     ax.set_xlabel(xlabel, fontsize = 14)
     ax.set_title(f"{n_components} components", fontsize = 14)
@@ -367,6 +384,23 @@ def plot_comparison(
       alpha = 0.3,
       color = mcolors.TABLEAU_COLORS["tab:orange"]
     )
+    # add Xs for unfeasible runs
+    unfeasible = m_res[
+      m_res["cost"] == np.inf # "Unfeasible solution saved"
+    ].copy(deep = True)
+    if len(unfeasible) > 0:
+      unfeasible["y"] = [
+        m_res.drop(unfeasible.index)[ycol].max()
+      ] * len(unfeasible)
+      unfeasible.plot.scatter(
+        x = "threshold",
+        y = "y",
+        marker = "*",
+        s = 50,
+        color = mcolors.TABLEAU_COLORS["tab:red"],
+        grid = True,
+        ax = ax
+      )
     # add axis info
     ax.set_xlabel("Global constraint threshold", fontsize = 14)
     ax.set_title(f"{n_components} components", fontsize = 14)
@@ -387,6 +421,8 @@ def plot_comparison(
 
 
 def main(base_folder: str, n_components_list: list):
+  output_folder = os.path.join(os.path.split(base_folder)[0], "postprocessing")
+  os.makedirs(output_folder, exist_ok = True)
   # load BCPC and SPACE4AI-R results
   all_bcpc_results = load_all_results(base_folder, n_components_list, "bcpc")
   all_bcpc_results["method"] = ["BCPC"] * len(all_bcpc_results)
@@ -394,9 +430,9 @@ def main(base_folder: str, n_components_list: list):
   all_s4air_results["method"] = ["SPACE4AI-R"] * len(all_s4air_results)
   # normalize the threshold values
   all_bcpc_results = normalize_threshold(all_bcpc_results)
-  all_bcpc_results.to_csv(os.path.join(base_folder, "bcpc_results.csv"))
+  all_bcpc_results.to_csv(os.path.join(output_folder, "bcpc_results.csv"))
   all_s4air_results = normalize_threshold(all_s4air_results)
-  all_s4air_results.to_csv(os.path.join(base_folder, "s4air_results.csv"))
+  all_s4air_results.to_csv(os.path.join(output_folder, "s4air_results.csv"))
   # plot
   plot_method_results(
     all_bcpc_results, 
@@ -406,7 +442,7 @@ def main(base_folder: str, n_components_list: list):
     "Global constraint threshold",
     "Cost",
     "bcpc",
-    base_folder
+    output_folder
   )
   plot_method_results(
     all_s4air_results, 
@@ -416,7 +452,7 @@ def main(base_folder: str, n_components_list: list):
     "Global constraint threshold",
     "Cost",
     "s4air",
-    base_folder
+    output_folder
   )
   # plot comparison
   plot_comparison(
@@ -425,7 +461,7 @@ def main(base_folder: str, n_components_list: list):
     n_components_list, 
     "cost",
     "Cost",
-    base_folder
+    output_folder
   )
   # plot method runtime
   plot_method_results(
@@ -436,7 +472,7 @@ def main(base_folder: str, n_components_list: list):
     "Global constraint threshold",
     "Method runtime (s)",
     "bcpc",
-    plot_folder = base_folder,
+    plot_folder = output_folder,
     logy = True
   )
   plot_method_results(
@@ -447,7 +483,7 @@ def main(base_folder: str, n_components_list: list):
     "Global constraint threshold",
     "Method runtime (s)",
     "s4air",
-    plot_folder = base_folder,
+    plot_folder = output_folder,
     logy = True
   )
   # plot runtime comparison
@@ -457,7 +493,7 @@ def main(base_folder: str, n_components_list: list):
     n_components_list, 
     "exec_time",
     "Runtime (s)",
-    plot_folder = base_folder,
+    plot_folder = output_folder,
     logy = True
   )
 
