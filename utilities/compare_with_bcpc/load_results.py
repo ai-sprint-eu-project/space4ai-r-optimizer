@@ -162,7 +162,10 @@ def load_all_results(
           )
           if len(instance_results) > 0 and len(instance_logs) > 0:
             instance_results = instance_results.join(
-              instance_logs[["exec_time", "status"]]
+              instance_logs.drop(
+                [c for c in instance_logs.columns if c in instance_results.columns],
+                axis = "columns"
+              )
             )
         # merge results
         all_results = pd.concat([all_results, instance_results])
@@ -184,22 +187,39 @@ def parse_s4air_logs(
       # parse log
       exec_time = np.inf
       status = "ERROR"
+      spaces = 0
+      nfound = 0
       with open(os.path.join(instance_folder, filename), "r") as istream:
         lines = istream.readlines()
-        # start time
-        start, _ = parse(
-          "{}	[Info]	****** READING CONFIGURATION FILE: {} ... ******\n",
-          lines[0]
-        )
-        start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
-        # finish time
-        end, status, _ = parse("{}	[Info]	{} at: {}\n", lines[-2])
-        end = datetime.strptime(end, "%Y-%m-%d %H:%M:%S")
-        # duration
-        exec_time = (end - start).total_seconds()
+        for idx, line in enumerate(lines):
+          if idx == 0:
+            # start time
+            start, _ = parse(
+              "{}	[Info]	****** READING CONFIGURATION FILE: {} ... ******\n",
+              lines[0]
+            )
+            start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
+          elif idx == len(lines) - 2:
+            # finish time
+            end, status, _ = parse("{}	[Info]	{} at: {}\n", lines[-2])
+            end = datetime.strptime(end, "%Y-%m-%d %H:%M:%S")
+            # duration
+            exec_time = (end - start).total_seconds()
+          elif "Elite container initialized" in line:
+            # container spaces
+            _, spaces = parse(
+              "{}	[Info]	Elite container initialized with {} spaces\n", line
+            )
+          elif "Number of top feasible" in line:
+            # number of feasible solutions found
+            _, nfound = parse(
+              "{}	[Info]	Number of top feasible solutions found: {}\n", line
+            )
       # save relevant information
       exec_times[threshold]["exec_time"] = float(exec_time)
       exec_times[threshold]["status"] = status
+      exec_times[threshold]["spaces"] = int(spaces)
+      exec_times[threshold]["nfound"] = int(nfound)
   # build dataframe
   exec_times = pd.DataFrame(exec_times).transpose().sort_index()
   for c in exec_times.columns:
@@ -320,6 +340,9 @@ def plot_comparison(
     n_components_list: list, 
     ycol: str,
     ylabel: str,
+    baseline_name: str = "BCPC",
+    method_name: str = "S4AIR",
+    gainlabel: str = "Average PCR (%)",
     plot_folder: str = None,
     logy: bool = False
   ):
@@ -329,7 +352,7 @@ def plot_comparison(
     ncols = ncols, 
     sharex = "col",
     sharey = "row", 
-    figsize = (8 * ncols, 5)
+    figsize = (8 * ncols, 8)
   )
   for idx, n_components in enumerate(n_components_list):
     ax0 = axs[0] if ncols == 1 else axs[0][idx]
@@ -356,7 +379,7 @@ def plot_comparison(
     b_res_avg.plot(
       x = "threshold",
       y = ycol,
-      label = "BCPC",
+      label = baseline_name,
       ax = ax0,
       grid = True,
       fontsize = 14,
@@ -369,7 +392,7 @@ def plot_comparison(
     m_res_avg.plot(
       x = "threshold",
       y = ycol,
-      label = "S4AIR",
+      label = method_name,
       ax = ax0,
       grid = True,
       fontsize = 14,
@@ -395,9 +418,11 @@ def plot_comparison(
       color = mcolors.TABLEAU_COLORS["tab:orange"]
     )
     # add Xs for unfeasible runs
-    unfeasible = m_res[
-      m_res["cost"] == np.inf # "Unfeasible solution saved"
-    ].copy(deep = True)
+    unfeasible = pd.DataFrame()
+    if "cost" in m_res:
+      unfeasible = m_res[
+        m_res["cost"] == np.inf # "Unfeasible solution saved"
+      ].copy(deep = True)
     if len(unfeasible) > 0:
       unfeasible["y"] = [
         m_res.drop(unfeasible.index)[ycol].max()
@@ -411,9 +436,6 @@ def plot_comparison(
         grid = True,
         ax = ax0
       )
-    # add axis info
-    # ax0.set_xlabel("Global constraint threshold", fontsize = 14)
-    ax0.set_title(f"{n_components} components", fontsize = 14)
     # plot gain
     avg_gain.plot(
       x = "threshold",
@@ -424,7 +446,14 @@ def plot_comparison(
       marker = ".",
       markersize = 5,
       linewidth = 1,
-      color = mcolors.TABLEAU_COLORS["tab:green"]
+      color = mcolors.TABLEAU_COLORS["tab:green"],
+      label = None,
+      legend = False
+    )
+    ax1.axhline(
+      y = 0,
+      linestyle = "dashed",
+      color = "k"
     )
     if len(unfeasible) > 0:
       unfeasible["y"] = [0] * len(unfeasible)
@@ -437,13 +466,15 @@ def plot_comparison(
         grid = True,
         ax = ax1
       )
+    # add axis info
+    ax0.set_title(f"{n_components} components", fontsize = 14)
     ax1.set_xlabel("Global constraint threshold", fontsize = 14)
   if ncols > 1:
     axs[0][0].set_ylabel(ylabel, fontsize = 14)
-    axs[1][0].set_ylabel("Average PCR", fontsize = 14)
+    axs[1][0].set_ylabel(gainlabel, fontsize = 14)
   else:
     axs[0].set_ylabel(ylabel, fontsize = 14)
-    axs[1].set_ylabel("Average PCR", fontsize = 14)
+    axs[1].set_ylabel(gainlabel, fontsize = 14)
   if plot_folder is not None:
     plt.savefig(
       os.path.join(plot_folder, f"{ycol}_comparison.png"),
@@ -497,7 +528,7 @@ def main(base_folder: str, n_components_list: list):
     n_components_list, 
     "cost",
     "Cost",
-    output_folder
+    plot_folder = output_folder
   )
   # plot method runtime
   plot_method_results(
@@ -529,13 +560,32 @@ def main(base_folder: str, n_components_list: list):
     n_components_list, 
     "exec_time",
     "Runtime (s)",
+    gainlabel = "Average time reduction (%)",
     plot_folder = output_folder,
     logy = True
+  )
+  # plot n. found solutions
+  plot_comparison(
+    all_s4air_results[
+      ["spaces", "threshold", "n_components", "exp_id"]
+    ].rename({"spaces": "n_solutions"}, axis = "columns"), 
+    all_s4air_results[
+      ["nfound", "threshold", "n_components", "exp_id"]
+    ].rename({"nfound": "n_solutions"}, axis = "columns"), 
+    n_components_list, 
+    "n_solutions",
+    "# elite solutions",
+    baseline_name = "spaces",
+    method_name = "found",
+    gainlabel = "Residual space (%)",
+    plot_folder = output_folder
   )
 
 
 if __name__ == "__main__":
-  args = parse_arguments()
-  base_folder = args.application_dir
-  n_components_list = args.n_components
+  # args = parse_arguments()
+  # base_folder = args.application_dir
+  # n_components_list = args.n_components
+  base_folder = "/Users/federicafilippini/Documents/TEMP/20250102c_S4AIRvsBCPC/large_scale"
+  n_components_list = [7, 10, 15]
   main(base_folder, n_components_list)
