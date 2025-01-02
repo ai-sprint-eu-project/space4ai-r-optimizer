@@ -55,32 +55,16 @@ def load_thresholds(filename: str) -> dict:
   return thresholds
 
 
-def get_base_config() -> dict:
-  base_config = {
-    "ConfigFiles": [
-      None
-    ],
-    "OutputFiles": [
-      None
-    ],
-    "Lambda": 1.0,
-    "Algorithm": {
-      "RG_n_iterations": 1e5,
-      "LS_n_iterations": 100,
-      "max_num_sols": 10,
-      "reproducibility": True
-    },
-    "Logger": {
-      "priority": 2,
-      "terminal_stream": True,
-      "file_stream": False
-    }
-  }
+def get_base_config(filename: str) -> dict:
+  base_config = {}
+  with open(filename, "r") as istream:
+    base_config = json.load(istream)
   return base_config
 
 
-def update_config(instance_folder: str, threshold: int) -> Tuple[dict, str]:
-  config = get_base_config()
+def update_config(
+    config: dict, instance_folder: str, threshold: int
+  ) -> Tuple[dict, str]:
   config["ConfigFiles"][0] = os.path.join(
     instance_folder,
     f"system_description_{threshold}_updated.json"
@@ -105,6 +89,10 @@ def main(base_folder: str, n_components_list: list, n_instances: str):
   all_thresholds = load_thresholds(
     os.path.join(base_folder, "thresholds.json")
   )
+  # load base configuration info
+  base_config = get_base_config(
+    os.path.join(base_folder, "space4air_input.json")
+  )
   # loop over all scenarios
   successful = []
   failed = []
@@ -114,13 +102,15 @@ def main(base_folder: str, n_components_list: list, n_instances: str):
       # loop over all instances
       n_instances = int(n_instances) if n_instances != "all" else len(instances)
       for instance, thresholds in instances.items():
-        if int(parse("Ins{}", instance)[0]) < n_instances:
+        if int(parse("Ins{}", instance)[0]) <= n_instances:
           print(f"  Instance: {instance}")
           instance_folder = os.path.join(base_folder, scenario, instance)
           # loop over all thresholds
           for threshold in tqdm(thresholds):
             # write configuration file
-            config, log_file = update_config(instance_folder, threshold)
+            config, log_file = update_config(
+              base_config, instance_folder, threshold
+            )
             config_file = write_config_file(base_folder, config)
             # run space4ai-r
             exe = "/home/SPACE4AI-R/s4ai-r-optimizer/BUILD/apps/s4air_exe"
