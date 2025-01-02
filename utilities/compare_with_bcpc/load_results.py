@@ -583,9 +583,7 @@ def main(base_folder: str, n_components_list: list):
 
 
 if __name__ == "__main__":
-  # args = parse_arguments()
-  # base_folder = args.application_dir
-  # n_components_list = args.n_components
-  base_folder = "/Users/federicafilippini/Documents/TEMP/20250102c_S4AIRvsBCPC/large_scale"
-  n_components_list = [7, 10, 15]
+  args = parse_arguments()
+  base_folder = args.application_dir
+  n_components_list = args.n_components
   main(base_folder, n_components_list)
