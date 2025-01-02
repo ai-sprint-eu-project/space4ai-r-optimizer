@@ -325,10 +325,15 @@ def plot_comparison(
   ):
   ncols = len(n_components_list)
   _, axs = plt.subplots(
-    nrows = 1, ncols = ncols, sharey = True, figsize = (8 * ncols, 5)
+    nrows = 2, 
+    ncols = ncols, 
+    sharex = "col",
+    sharey = "row", 
+    figsize = (8 * ncols, 5)
   )
   for idx, n_components in enumerate(n_components_list):
-    ax = axs if ncols == 1 else axs[idx]
+    ax0 = axs[0] if ncols == 1 else axs[0][idx]
+    ax1 = axs[1] if ncols == 1 else axs[1][idx]
     b_res = baseline_results[baseline_results["n_components"] == n_components]
     m_res = method_results[method_results["n_components"] == n_components]
     # compute average and standard deviation
@@ -342,12 +347,17 @@ def plot_comparison(
     ]
     m_res_avg["std"] = m_res.groupby("exp_id").std(numeric_only = True)[ycol]
     m_res_avg["n"] = m_res.groupby("exp_id").count()[ycol]
+    # compute gain
+    avg_gain = pd.DataFrame({
+      ycol: (b_res_avg[ycol] - m_res_avg[ycol]) / b_res_avg[ycol] * 100,
+      "threshold": b_res_avg["threshold"]
+    })
     # plot
     b_res_avg.plot(
       x = "threshold",
       y = ycol,
       label = "BCPC",
-      ax = ax,
+      ax = ax0,
       grid = True,
       fontsize = 14,
       marker = ".",
@@ -360,7 +370,7 @@ def plot_comparison(
       x = "threshold",
       y = ycol,
       label = "S4AIR",
-      ax = ax,
+      ax = ax0,
       grid = True,
       fontsize = 14,
       marker = ".",
@@ -370,14 +380,14 @@ def plot_comparison(
       logy = logy
     )
     # confidence intervals
-    ax.fill_between(
+    ax0.fill_between(
       x = b_res_avg["threshold"],
       y1 = b_res_avg[ycol] - 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
       y2 = b_res_avg[ycol] + 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
       alpha = 0.4,
       color = mcolors.TABLEAU_COLORS["tab:blue"]
     )
-    ax.fill_between(
+    ax0.fill_between(
       x = m_res_avg["threshold"],
       y1 = m_res_avg[ycol] - 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
       y2 = m_res_avg[ycol] + 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
@@ -399,15 +409,41 @@ def plot_comparison(
         s = 50,
         color = mcolors.TABLEAU_COLORS["tab:red"],
         grid = True,
-        ax = ax
+        ax = ax0
       )
     # add axis info
-    ax.set_xlabel("Global constraint threshold", fontsize = 14)
-    ax.set_title(f"{n_components} components", fontsize = 14)
+    # ax0.set_xlabel("Global constraint threshold", fontsize = 14)
+    ax0.set_title(f"{n_components} components", fontsize = 14)
+    # plot gain
+    avg_gain.plot(
+      x = "threshold",
+      y = ycol,
+      ax = ax1,
+      grid = True,
+      fontsize = 14,
+      marker = ".",
+      markersize = 5,
+      linewidth = 1,
+      color = mcolors.TABLEAU_COLORS["tab:green"]
+    )
+    if len(unfeasible) > 0:
+      unfeasible["y"] = [0] * len(unfeasible)
+      unfeasible.plot.scatter(
+        x = "threshold",
+        y = "y",
+        marker = "*",
+        s = 50,
+        color = mcolors.TABLEAU_COLORS["tab:red"],
+        grid = True,
+        ax = ax1
+      )
+    ax1.set_xlabel("Global constraint threshold", fontsize = 14)
   if ncols > 1:
-    axs[0].set_ylabel(ylabel, fontsize = 14)
+    axs[0][0].set_ylabel(ylabel, fontsize = 14)
+    axs[1][0].set_ylabel("Average PCR", fontsize = 14)
   else:
-    axs.set_ylabel(ylabel, fontsize = 14)
+    axs[0].set_ylabel(ylabel, fontsize = 14)
+    axs[1].set_ylabel("Average PCR", fontsize = 14)
   if plot_folder is not None:
     plt.savefig(
       os.path.join(plot_folder, f"{ycol}_comparison.png"),
