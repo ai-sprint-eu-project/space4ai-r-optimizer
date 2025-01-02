@@ -241,18 +241,23 @@ def plot_method_results(
     plot_folder: str = None,
     logy: bool = False
   ):
+  ncols = len(n_components_list)
   _, axs = plt.subplots(
-    nrows = 1, ncols = len(n_components_list), sharey = True, figsize = (25, 5)
+    nrows = 1, 
+    ncols = ncols, 
+    sharey = True, 
+    figsize = (8 * ncols, 5)
   )
   for idx, n_components in enumerate(n_components_list):
     results = all_results[all_results["n_components"] == n_components]
+    ax = axs if ncols == 1 else axs[idx]
     # plot instance results
     for instance_id, data in results.groupby("instance"):
       data.plot(
         x = xcol,
         y = ycol,
         label = f"Ins{instance_id}",
-        ax = axs[idx],
+        ax = ax,
         grid = True,
         fontsize = 14,
         marker = ".",
@@ -267,16 +272,19 @@ def plot_method_results(
       y = ycol,
       label = "average",
       color = "k",
-      ax = axs[idx],
+      ax = ax,
       grid = True,
       fontsize = 14,
       linewidth = 3,
       logy = logy
     )
     # add axis info
-    axs[idx].set_xlabel(xlabel, fontsize = 14)
-    axs[idx].set_title(f"{n_components} components", fontsize = 14)
-  axs[0].set_ylabel(ylabel, fontsize = 14)
+    ax.set_xlabel(xlabel, fontsize = 14)
+    ax.set_title(f"{n_components} components", fontsize = 14)
+  if ncols > 1:
+    axs[0].set_ylabel(ylabel, fontsize = 14)
+  else:
+    axs.set_ylabel(ylabel, fontsize = 14)
   if plot_folder is not None:
     plt.savefig(
       os.path.join(plot_folder, f"{method}_{ycol}.png"),
@@ -298,10 +306,12 @@ def plot_comparison(
     plot_folder: str = None,
     logy: bool = False
   ):
+  ncols = len(n_components_list)
   _, axs = plt.subplots(
-    nrows = 1, ncols = len(n_components_list), sharey = True, figsize = (25, 5)
+    nrows = 1, ncols = ncols, sharey = True, figsize = (8 * ncols, 5)
   )
   for idx, n_components in enumerate(n_components_list):
+    ax = axs if ncols == 1 else axs[idx]
     b_res = baseline_results[baseline_results["n_components"] == n_components]
     m_res = method_results[method_results["n_components"] == n_components]
     # compute average and standard deviation
@@ -320,7 +330,7 @@ def plot_comparison(
       x = "threshold",
       y = ycol,
       label = "BCPC",
-      ax = axs[idx],
+      ax = ax,
       grid = True,
       fontsize = 14,
       marker = ".",
@@ -333,7 +343,7 @@ def plot_comparison(
       x = "threshold",
       y = ycol,
       label = "S4AIR",
-      ax = axs[idx],
+      ax = ax,
       grid = True,
       fontsize = 14,
       marker = ".",
@@ -343,14 +353,14 @@ def plot_comparison(
       logy = logy
     )
     # confidence intervals
-    axs[idx].fill_between(
+    ax.fill_between(
       x = b_res_avg["threshold"],
       y1 = b_res_avg[ycol] - 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
       y2 = b_res_avg[ycol] + 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
       alpha = 0.4,
       color = mcolors.TABLEAU_COLORS["tab:blue"]
     )
-    axs[idx].fill_between(
+    ax.fill_between(
       x = m_res_avg["threshold"],
       y1 = m_res_avg[ycol] - 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
       y2 = m_res_avg[ycol] + 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
@@ -358,9 +368,12 @@ def plot_comparison(
       color = mcolors.TABLEAU_COLORS["tab:orange"]
     )
     # add axis info
-    axs[idx].set_xlabel("Global constraint threshold", fontsize = 14)
-    axs[idx].set_title(f"{n_components} components", fontsize = 14)
-  axs[0].set_ylabel(ylabel, fontsize = 14)
+    ax.set_xlabel("Global constraint threshold", fontsize = 14)
+    ax.set_title(f"{n_components} components", fontsize = 14)
+  if ncols > 1:
+    axs[0].set_ylabel(ylabel, fontsize = 14)
+  else:
+    axs.set_ylabel(ylabel, fontsize = 14)
   if plot_folder is not None:
     plt.savefig(
       os.path.join(plot_folder, f"{ycol}_comparison.png"),
