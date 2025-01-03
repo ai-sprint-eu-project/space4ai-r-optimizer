@@ -250,15 +250,18 @@ def normalize_threshold(
   for key, data in all_results.groupby(["n_components", "instance"]):
     c = f"{int(key[0])}Components"
     i = f"Ins{int(key[1])}"
+    df = pd.DataFrame(thresholds[c][i]).sort_values("rescaled")
     mapping = {
-      k: v for k,v in zip(
-        thresholds[c][i]["original"], thresholds[c][i]["rescaled"]
+      k: (v, j) for k,v,j in zip(
+        df["original"], df["rescaled"], range(len(df["rescaled"]))
       )
     }
     all_results.loc[data.index, "threshold"] = [
-      mapping[val] for val in data["original_threshold"]
+      mapping[val][0] for val in data["original_threshold"]
     ]
-    all_results.loc[data.index, "exp_id"] = list(range(len(data)))
+    all_results.loc[data.index, "exp_id"] = [
+      mapping[val][1] for val in data["original_threshold"]
+    ]
   return all_results
 
 
