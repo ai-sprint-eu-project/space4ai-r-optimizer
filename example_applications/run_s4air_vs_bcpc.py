@@ -131,8 +131,9 @@ def main(
   constr = f"{constraints_rule}Constraints"
   cfg = base_config['Algorithm']
   maxit = f"RG{cfg['RG_n_iterations']}_LS{cfg['LS_n_iterations']}"
+  nsol = f"{cfg['max_num_sols']}sol"
   base_output_folder = os.path.join(
-    base_folder, f"output_{constr}_{maxit}"
+    base_folder, f"output_{constr}_{maxit}_{nsol}"
   )
   os.makedirs(base_output_folder, exist_ok = True)
   # loop over all scenarios
