@@ -470,6 +470,11 @@ def plot_comparison(
       linestyle = "dashed",
       color = "k"
     )
+    ax1.axhline(
+      y = avg_gain[avg_gain[ycol].abs() != np.inf][ycol].mean(),
+      linewidth = 2,
+      color = mcolors.TABLEAU_COLORS["tab:red"]
+    )
     if len(unfeasible) > 0:
       unfeasible["y"] = [0] * len(unfeasible)
       unfeasible.plot.scatter(
