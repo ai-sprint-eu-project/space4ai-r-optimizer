@@ -184,7 +184,11 @@ class Logger
     * 	\param message Logging message to be printed
     */
     void
-    log(const std::string& message_priority_str, LogPriority message_priority, const std::string& message)
+    log(
+      const std::string& message_priority_str, 
+      LogPriority message_priority, 
+      const std::string& message
+    )
     {
       if(priority <= message_priority)
       {
