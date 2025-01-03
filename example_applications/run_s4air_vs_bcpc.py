@@ -16,6 +16,7 @@ Copyright 2021 AI-SPRINT
 from typing import Tuple
 from parse import parse
 from tqdm import tqdm
+import pandas as pd
 import argparse
 import json
 import os
@@ -44,6 +45,12 @@ def parse_arguments() -> argparse.Namespace:
     help="Number of instances to consider (for each scenario)",
     default="all"
   )
+  parser.add_argument(
+    "-c", "--constraints", 
+    help="Type of constraint to consider (for each instance)",
+    choices=["light", "strict", "mid", "all"],
+    default="all"
+  )
   args, _ = parser.parse_known_args()
   return args
 
@@ -62,18 +69,40 @@ def get_base_config(filename: str) -> dict:
   return base_config
 
 
+def sort_and_filter(thresholds: dict, constraints_rule: str) -> list:
+  # sort by the rescaled values
+  sorted_thresholds = pd.DataFrame(thresholds).sort_values("rescaled")
+  # extract subset of thresholds to consider according to the constraints rule
+  if constraints_rule != "all":
+    if constraints_rule == "light":
+      sorted_thresholds = sorted_thresholds[
+        sorted_thresholds["rescaled"] >= 60
+      ]
+    elif constraints_rule == "mid":
+      sorted_thresholds = sorted_thresholds[
+        (sorted_thresholds["rescaled"] >= 10) & 
+        (sorted_thresholds["rescaled"] < 60)
+      ]
+    elif constraints_rule == "strict":
+      sorted_thresholds = sorted_thresholds[
+        (sorted_thresholds["rescaled"] < 10)
+      ]
+  # return the list of original thresholds
+  return list(sorted_thresholds["original"])
+
+
 def update_config(
-    config: dict, instance_folder: str, threshold: int
+    config: dict, instance_folder: str, output_folder: str, threshold: int
   ) -> Tuple[dict, str]:
   config["ConfigFiles"][0] = os.path.join(
     instance_folder,
     f"system_description_{threshold}_updated.json"
   )
   config["OutputFiles"][0] = os.path.join(
-    instance_folder,
+    output_folder,
     f"s4air_solution_{threshold}.json"
   )
-  log_file = os.path.join(instance_folder, f"s4air_{threshold}.log")
+  log_file = os.path.join(output_folder, f"s4air_{threshold}.log")
   return config, log_file
 
 
@@ -84,15 +113,28 @@ def write_config_file(base_folder: str, config: dict):
   return config_file
 
 
-def main(base_folder: str, n_components_list: list, n_instances: str):
+def main(
+    base_folder: str, 
+    n_components_list: list, 
+    n_instances: str,
+    constraints_rule: str = "all"
+  ):
   # load thresholds
   all_thresholds = load_thresholds(
-    os.path.join(base_folder, "thresholds.json")
+    os.path.join(base_folder, "large_scale/thresholds.json")
   )
   # load base configuration info
   base_config = get_base_config(
     os.path.join(base_folder, "space4air_input.json")
   )
+  # build output folder
+  constr = f"{constraints_rule}Constraints"
+  cfg = base_config['Algorithm']
+  maxit = f"RG{cfg['RG_n_iterations']}_LS{cfg['LS_n_iterations']}"
+  base_output_folder = os.path.join(
+    base_folder, f"output_{constr}_{maxit}"
+  )
+  os.makedirs(base_output_folder, exist_ok = True)
   # loop over all scenarios
   successful = []
   failed = []
@@ -104,14 +146,20 @@ def main(base_folder: str, n_components_list: list, n_instances: str):
       for instance, thresholds in instances.items():
         if int(parse("Ins{}", instance)[0]) <= n_instances:
           print(f"  Instance: {instance}")
-          instance_folder = os.path.join(base_folder, scenario, instance)
+          instance_folder = os.path.join(
+            base_folder, "large_scale", scenario, instance
+          )
+          output_folder = os.path.join(base_output_folder, scenario, instance)
+          os.makedirs(output_folder, exist_ok = True)
+          # sort thresholds by rescaled values
+          sorted_thresholds = sort_and_filter(thresholds, constraints_rule)
           # loop over all thresholds
-          for threshold in tqdm(thresholds):
+          for threshold in tqdm(sorted_thresholds):
             # write configuration file
             config, log_file = update_config(
-              base_config, instance_folder, threshold
+              base_config, instance_folder, output_folder, threshold
             )
-            config_file = write_config_file(base_folder, config)
+            config_file = write_config_file(base_output_folder, config)
             # run space4ai-r
             exe = "/home/SPACE4AI-R/s4ai-r-optimizer/BUILD/apps/s4air_exe"
             command = f"{exe} {config_file} > {log_file} 2>&1"
@@ -121,10 +169,10 @@ def main(base_folder: str, n_components_list: list, n_instances: str):
             else:
               failed.append((scenario, instance, threshold))
   # write list of successful/failed tests
-  with open(os.path.join(base_folder, "successful.txt"), "w") as ostream:
+  with open(os.path.join(base_output_folder, "successful.txt"), "w") as ostream:
     for exp in successful:
       ostream.write(f"{exp}\n")
-  with open(os.path.join(base_folder, "failed.txt"), "w") as ostream:
+  with open(os.path.join(base_output_folder, "failed.txt"), "w") as ostream:
     for exp in failed:
       ostream.write(f"{exp}\n")
 
@@ -134,4 +182,5 @@ if __name__ == "__main__":
   base_folder = args.application_dir
   n_components_list = args.n_components
   n_instances = args.n_instances
-  main(base_folder, n_components_list, n_instances)
+  constraints_rule = args.constraints
+  main(base_folder, n_components_list, n_instances, constraints_rule)
