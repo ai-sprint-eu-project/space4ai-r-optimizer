@@ -29,11 +29,16 @@ def parse_arguments() -> argparse.Namespace:
   Parse input arguments
   """
   parser = argparse.ArgumentParser(
-    description="Load BCPC results"
+    description="Load BCPC and SPACE4AI-R results"
   )
   parser.add_argument(
     "--application_dir", 
     help="Path to the base folder", 
+    type=str
+  )
+  parser.add_argument(
+    "--output_dir", 
+    help="Name of the subfolder with SPACE4AI-R results", 
     type=str
   )
   parser.add_argument(
@@ -199,7 +204,7 @@ def parse_s4air_logs(
               lines[0]
             )
             start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
-          elif idx == len(lines) - 2:
+          elif idx == len(lines) - 2 and "saved" in line:
             # finish time
             end, status, _ = parse("{}	[Info]	{} at: {}\n", lines[-2])
             end = datetime.strptime(end, "%Y-%m-%d %H:%M:%S")
@@ -233,18 +238,25 @@ def parse_s4air_logs(
   return exec_times
 
 
-def normalize_threshold(all_data: pd.DataFrame) -> pd.DataFrame:
+def normalize_threshold(
+    all_data: pd.DataFrame, thresholds: dict
+  ) -> pd.DataFrame:
   all_results = all_data.copy(deep = True)
   all_results["original_threshold"] = all_results.index
   all_results.index = list(range(len(all_results)))
   # normalize the constraint value
   all_results["threshold"] = [-1.0] * len(all_results)
   all_results["exp_id"] = [None] * len(all_results)
-  for _, data in all_results.groupby(["n_components", "instance"]):
-    tmim = data["original_threshold"].min()
-    tmax = data["original_threshold"].max()
+  for key, data in all_results.groupby(["n_components", "instance"]):
+    c = f"{int(key[0])}Components"
+    i = f"Ins{int(key[1])}"
+    mapping = {
+      k: v for k,v in zip(
+        thresholds[c][i]["original"], thresholds[c][i]["rescaled"]
+      )
+    }
     all_results.loc[data.index, "threshold"] = [
-      rescale(val, tmim, tmax, 0, 100) for val in data["original_threshold"]
+      mapping[val] for val in data["original_threshold"]
     ]
     all_results.loc[data.index, "exp_id"] = list(range(len(data)))
   return all_results
@@ -487,18 +499,32 @@ def plot_comparison(
     plt.show()
 
 
-def main(base_folder: str, n_components_list: list):
-  output_folder = os.path.join(os.path.split(base_folder)[0], "postprocessing")
+def main(base_folder: str, output_foldername: str, n_components_list: list):
+  output_folder = os.path.join(
+    base_folder, 
+    "postprocessing",
+    output_foldername.removeprefix("output_")
+  )
   os.makedirs(output_folder, exist_ok = True)
   # load BCPC and SPACE4AI-R results
-  all_bcpc_results = load_all_results(base_folder, n_components_list, "bcpc")
+  bcpc_input_folder = os.path.join(base_folder, "large_scale")
+  s4air_input_folder = os.path.join(base_folder, output_foldername)
+  all_bcpc_results = load_all_results(
+    bcpc_input_folder, n_components_list, "bcpc"
+  )
   all_bcpc_results["method"] = ["BCPC"] * len(all_bcpc_results)
-  all_s4air_results = load_all_results(base_folder, n_components_list, "s4air")
+  all_s4air_results = load_all_results(
+    s4air_input_folder, n_components_list, "s4air"
+  )
   all_s4air_results["method"] = ["SPACE4AI-R"] * len(all_s4air_results)
+  # load normalized threshold values
+  thresholds = {}
+  with open(os.path.join(bcpc_input_folder, "thresholds.json"), "r") as ist:
+    thresholds = json.load(ist)
   # normalize the threshold values
-  all_bcpc_results = normalize_threshold(all_bcpc_results)
+  all_bcpc_results = normalize_threshold(all_bcpc_results, thresholds)
   all_bcpc_results.to_csv(os.path.join(output_folder, "bcpc_results.csv"))
-  all_s4air_results = normalize_threshold(all_s4air_results)
+  all_s4air_results = normalize_threshold(all_s4air_results, thresholds)
   all_s4air_results.to_csv(os.path.join(output_folder, "s4air_results.csv"))
   # plot
   plot_method_results(
@@ -585,5 +611,6 @@ def main(base_folder: str, n_components_list: list):
 if __name__ == "__main__":
   args = parse_arguments()
   base_folder = args.application_dir
+  output_foldername = args.output_dir
   n_components_list = args.n_components
-  main(base_folder, n_components_list)
+  main(base_folder, output_foldername, n_components_list)
