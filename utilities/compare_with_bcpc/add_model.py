@@ -14,6 +14,7 @@ Copyright 2021 AI-SPRINT
  limitations under the License.
 """
 from parse import parse
+from numpy import inf
 import argparse
 import json
 import os
@@ -39,6 +40,20 @@ def parse_arguments() -> argparse.Namespace:
   )
   args, _ = parser.parse_known_args()
   return args
+
+
+def rescale(
+    val: float, 
+    in_min: float, 
+    in_max: float, 
+    out_min: float, 
+    out_max: float
+  ) -> float:
+  """
+  Rescale value from the original interval [in_min, in_max] to the new 
+  range [out_min, out_max]
+  """
+  return out_min + (val - in_min) * ((out_max - out_min) / (in_max - in_min))
 
 
 def update_system_file(filename: str) -> str:
@@ -80,17 +95,40 @@ def main(base_folder: str, n_components_list: list):
         print(f"  processing instance {instance_id}")
         instance_folder = os.path.join(scenario_folder, foldername)
         # loop over instance files
-        thresholds[scenario][f"Ins{instance_id}"] = []
+        thresholds[scenario][f"Ins{instance_id}"] = {
+          "original": [],
+          "rescaled": []
+        }
+        tmin = inf
+        tmax = 0.0
         for filename in os.listdir(instance_folder):
           if filename.startswith("system_description"):
             tokens = filename.split("_")
             if len(tokens) == 3 and "updated" not in tokens[-1]:
-              thresholds[scenario][f"Ins{instance_id}"].append(
-                int(tokens[-1].split(".")[0])
-              )
+              t = int(tokens[-1].split(".")[0])
+              thresholds[scenario][f"Ins{instance_id}"]["original"].append(t)
+              tmin = t if t < tmin else tmin
+              tmax = t if t > tmax else tmax
               _ = update_system_file(os.path.join(instance_folder, filename))
-  # write all thresholds
-  with open(os.path.join(base_folder, "thresholds.json"), "w") as ostream:
+        # rescale thresholds
+        original = thresholds[scenario][f"Ins{instance_id}"]["original"]
+        thresholds[scenario][f"Ins{instance_id}"]["rescaled"] = [
+          rescale(t, tmin, tmax, 0, 100) for t in original
+        ]
+  # write all thresholds (load existing first, if any)
+  thresholds_filename = os.path.join(base_folder, "thresholds.json")
+  if os.path.exists(thresholds_filename):
+    with open(thresholds_filename, "r") as istream:
+      existing_thresholds = json.load(istream)
+      # merge
+      for key, val in existing_thresholds.items():
+        if key not in thresholds:
+          thresholds[key] = val
+        else:
+          for ikey, ival in val.items():
+            if ikey not in thresholds[key]:
+              thresholds[key][ikey] = ival
+  with open(thresholds_filename, "w") as ostream:
     ostream.write(json.dumps(thresholds, indent = 2))
 
 
