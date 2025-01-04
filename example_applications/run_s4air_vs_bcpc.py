@@ -50,7 +50,8 @@ def parse_arguments() -> argparse.Namespace:
     "-c", "--constraints", 
     help="Type of constraint to consider (for each instance)",
     choices=["light", "strict", "mid", "all"],
-    default="all"
+    default="all",
+    nargs="+"
   )
   args, _ = parser.parse_known_args()
   return args
@@ -70,26 +71,32 @@ def get_base_config(filename: str) -> dict:
   return base_config
 
 
-def sort_and_filter(thresholds: dict, constraints_rule: str) -> list:
+def sort_and_filter(thresholds: dict, constraints_rules) -> list:
   # sort by the rescaled values
   sorted_thresholds = pd.DataFrame(thresholds).sort_values("rescaled")
+  thresholds_subset = list(sorted_thresholds["original"])
   # extract subset of thresholds to consider according to the constraints rule
-  if constraints_rule != "all":
-    if constraints_rule == "light":
-      sorted_thresholds = sorted_thresholds[
-        sorted_thresholds["rescaled"] >= 60
-      ]
-    elif constraints_rule == "mid":
-      sorted_thresholds = sorted_thresholds[
-        (sorted_thresholds["rescaled"] >= 10) & 
-        (sorted_thresholds["rescaled"] < 60)
-      ]
-    elif constraints_rule == "strict":
-      sorted_thresholds = sorted_thresholds[
-        (sorted_thresholds["rescaled"] < 10)
-      ]
+  if constraints_rules != "all":
+    thresholds_subset = []
+    for constraints_rule in constraints_rules:
+      if constraints_rule == "light":
+        subset = sorted_thresholds[
+          sorted_thresholds["rescaled"] >= 60
+        ]
+        thresholds_subset += list(subset["original"])
+      elif constraints_rule == "mid":
+        subset = sorted_thresholds[
+          (sorted_thresholds["rescaled"] >= 10) & 
+          (sorted_thresholds["rescaled"] < 60)
+        ]
+        thresholds_subset += list(subset["original"])
+      elif constraints_rule == "strict":
+        subset = sorted_thresholds[
+          (sorted_thresholds["rescaled"] < 10)
+        ]
+        thresholds_subset += list(subset["original"])
   # return the list of original thresholds
-  return list(sorted_thresholds["original"])
+  return thresholds_subset
 
 
 def update_config(
@@ -118,7 +125,7 @@ def main(
     base_folder: str, 
     n_components_list: list, 
     n_instances: str,
-    constraints_rule: str = "all"
+    constraints_rules = "all"
   ):
   # load thresholds
   all_thresholds = load_thresholds(
@@ -129,7 +136,9 @@ def main(
     os.path.join(base_folder, "space4air_input.json")
   )
   # build output folder
-  constr = f"{constraints_rule}Constraints"
+  constr = "allConstraints"
+  if constraints_rules != "all":
+    constr = "-".join(constraints_rules) + "Constraints"
   cfg = base_config['Algorithm']
   maxit = f"RG{cfg['RG_n_iterations']}_LS{cfg['LS_n_iterations']}"
   nsol = f"{cfg['max_num_sols']}sol"
@@ -155,7 +164,7 @@ def main(
           output_folder = os.path.join(base_output_folder, scenario, instance)
           os.makedirs(output_folder, exist_ok = True)
           # sort thresholds by rescaled values
-          sorted_thresholds = sort_and_filter(thresholds, constraints_rule)
+          sorted_thresholds = sort_and_filter(thresholds, constraints_rules)
           # loop over all thresholds
           for threshold in tqdm(sorted_thresholds):
             # write configuration file
@@ -193,5 +202,5 @@ if __name__ == "__main__":
   base_folder = args.application_dir
   n_components_list = args.n_components
   n_instances = args.n_instances
-  constraints_rule = args.constraints
-  main(base_folder, n_components_list, n_instances, constraints_rule)
+  constraints_rules = args.constraints
+  main(base_folder, n_components_list, n_instances, constraints_rules)
