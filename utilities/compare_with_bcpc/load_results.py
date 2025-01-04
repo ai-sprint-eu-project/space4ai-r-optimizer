@@ -33,12 +33,12 @@ def parse_arguments() -> argparse.Namespace:
   )
   parser.add_argument(
     "--application_dir", 
-    help="Path to the base folder", 
+    help="Path to the base folder with SPACE4AI-R results", 
     type=str
   )
   parser.add_argument(
-    "--output_dir", 
-    help="Name of the subfolder with SPACE4AI-R results", 
+    "--bcpc_dir", 
+    help="Path to the folder with BCPC results", 
     type=str
   )
   parser.add_argument(
@@ -507,7 +507,9 @@ def plot_comparison(
     plt.show()
 
 
-def main(base_folder: str, output_foldername: str, n_components_list: list):
+def main(s4air_folder: str, bcpc_folder: str, n_components_list: list):
+  base_folder, output_foldername = os.path.split(s4air_folder)
+  # generate folder to save results
   output_folder = os.path.join(
     base_folder, 
     "postprocessing",
@@ -515,19 +517,17 @@ def main(base_folder: str, output_foldername: str, n_components_list: list):
   )
   os.makedirs(output_folder, exist_ok = True)
   # load BCPC and SPACE4AI-R results
-  bcpc_input_folder = os.path.join(base_folder, "large_scale")
-  s4air_input_folder = os.path.join(base_folder, output_foldername)
   all_bcpc_results = load_all_results(
-    bcpc_input_folder, n_components_list, "bcpc"
+    bcpc_folder, n_components_list, "bcpc"
   )
   all_bcpc_results["method"] = ["BCPC"] * len(all_bcpc_results)
   all_s4air_results = load_all_results(
-    s4air_input_folder, n_components_list, "s4air"
+    s4air_folder, n_components_list, "s4air"
   )
   all_s4air_results["method"] = ["SPACE4AI-R"] * len(all_s4air_results)
   # load normalized threshold values
   thresholds = {}
-  with open(os.path.join(bcpc_input_folder, "thresholds.json"), "r") as ist:
+  with open(os.path.join(bcpc_folder, "thresholds.json"), "r") as ist:
     thresholds = json.load(ist)
   # normalize the threshold values
   all_bcpc_results = normalize_threshold(all_bcpc_results, thresholds)
@@ -619,6 +619,6 @@ def main(base_folder: str, output_foldername: str, n_components_list: list):
 if __name__ == "__main__":
   args = parse_arguments()
   base_folder = args.application_dir
-  output_foldername = args.output_dir
+  bcpc_folder = args.bcpc_dir
   n_components_list = args.n_components
-  main(base_folder, output_foldername, n_components_list)
+  main(base_folder, bcpc_folder, n_components_list)
