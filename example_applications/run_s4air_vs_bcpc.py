@@ -13,6 +13,7 @@ Copyright 2021 AI-SPRINT
  See the License for the specific language governing permissions and
  limitations under the License.
 """
+from datetime import datetime
 from typing import Tuple
 from parse import parse
 from tqdm import tqdm
@@ -139,6 +140,7 @@ def main(
   # loop over all scenarios
   successful = []
   failed = []
+  exec_times = []
   for scenario, instances in all_thresholds.items():
     if int(parse("{}Components", scenario)[0]) in n_components_list:
       print(f"Scenario: {scenario}")
@@ -161,20 +163,28 @@ def main(
               base_config, instance_folder, output_folder, threshold
             )
             config_file = write_config_file(base_output_folder, config)
-            # run space4ai-r
+            # run space4ai-r (collect execution times for backup)
             exe = "/home/SPACE4AI-R/s4ai-r-optimizer/BUILD/apps/s4air_exe"
             command = f"{exe} {config_file} > {log_file} 2>&1"
+            s = datetime.now()
             out = os.system(command)
+            e = datetime.now()
             if out == 0:
               successful.append((scenario, instance, threshold))
             else:
               failed.append((scenario, instance, threshold))
-  # write list of successful/failed tests
+            exec_times.append(
+              (scenario, instance, threshold, (e - s).total_seconds())
+            )
+  # write list of successful/failed tests and execution times
   with open(os.path.join(base_output_folder, "successful.txt"), "w") as ostream:
     for exp in successful:
       ostream.write(f"{exp}\n")
   with open(os.path.join(base_output_folder, "failed.txt"), "w") as ostream:
     for exp in failed:
+      ostream.write(f"{exp}\n")
+  with open(os.path.join(base_output_folder, "times.txt"), "w") as ostream:
+    for exp in exec_times:
       ostream.write(f"{exp}\n")
 
 
