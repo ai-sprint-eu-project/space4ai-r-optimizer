@@ -76,7 +76,7 @@ def sort_and_filter(thresholds: dict, constraints_rules) -> list:
   sorted_thresholds = pd.DataFrame(thresholds).sort_values("rescaled")
   thresholds_subset = list(sorted_thresholds["original"])
   # extract subset of thresholds to consider according to the constraints rule
-  if constraints_rules != "all":
+  if constraints_rules[0] != "all":
     thresholds_subset = []
     for constraints_rule in constraints_rules:
       if constraints_rule == "light":
