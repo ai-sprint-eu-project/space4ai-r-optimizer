@@ -238,6 +238,51 @@ def parse_s4air_logs(
   return exec_times
 
 
+def load_s4air_times(s4air_folder: str) -> pd.DataFrame:
+  exec_times = {}
+  with open(os.path.join(s4air_folder, "times.txt"), "r") as istream:
+    for line in istream.readlines():
+      # parse line to collect info
+      tokens = parse(
+        "('{}Components', 'Ins{}', {}, {})\n", line
+      )
+      if tokens is not None:
+        n_components = int(tokens[0])
+        instance_id = int(tokens[1])
+        threshold = int(tokens[2])
+        exec_time = float(tokens[3])
+        # add number of components and instance id
+        if n_components not in exec_times:
+          exec_times[n_components] = {}
+        if instance_id not in exec_times[n_components]:
+          exec_times[n_components][instance_id] = {}
+        # add threshold
+        if threshold not in exec_times[n_components][instance_id]:
+          exec_times[n_components][instance_id][threshold] = {}
+        # save relevant information
+        exec_times[n_components][instance_id][threshold]["exec_time"] = exec_time
+        exec_times[n_components][instance_id][threshold]["status"] = "N/A"
+        exec_times[n_components][instance_id][threshold]["spaces"] = 0
+        exec_times[n_components][instance_id][threshold]["nfound"] = 0
+  # convert into a dataframe
+  exec_times_df = pd.DataFrame()
+  for n, n_times in exec_times.items():
+    for i, i_times in n_times.items():
+      # build dataframe for the current instance
+      df = pd.DataFrame(i_times).transpose().sort_index()
+      for c in df.columns:
+        if "status" not in c:
+          df[c] = df[c].astype("float")
+      # rename index column
+      df.index.name = "original_threshold"
+      # add number of components and instance id
+      df["n_components"] = [n] * len(df)
+      df["instance"] = [i] * len(df)
+      # merge
+      exec_times_df = pd.concat([exec_times_df, df])
+  return exec_times_df
+
+
 def normalize_threshold(
     all_data: pd.DataFrame, thresholds: dict
   ) -> pd.DataFrame:
@@ -524,6 +569,9 @@ def main(s4air_folder: str, bcpc_folder: str, n_components_list: list):
   all_s4air_results = load_all_results(
     s4air_folder, n_components_list, "s4air"
   )
+  s4air_times = load_s4air_times(s4air_folder)
+  if (s4air_times.index == all_s4air_results.index).all():
+    all_s4air_results["exec_time"] = s4air_times["exec_time"]
   all_s4air_results["method"] = ["SPACE4AI-R"] * len(all_s4air_results)
   # load normalized threshold values
   thresholds = {}
