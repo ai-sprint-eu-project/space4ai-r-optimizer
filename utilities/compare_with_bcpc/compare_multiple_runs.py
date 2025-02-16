@@ -92,6 +92,23 @@ def plot_comparison(
     10: [0, 2, 4, 5, 7, 8], 
     15: [0, 2, 4, 5, 7, 8]
   }
+  # filter from minimum threshold
+  min_threshold = 10
+  max_threshold = 75
+  baseline_results = baseline_results[
+    (
+      baseline_results["threshold"] >= min_threshold
+    ) & (
+      baseline_results["threshold"] <= max_threshold
+    )
+  ]
+  method_results = method_results[
+    (
+      method_results["threshold"] >= min_threshold
+    ) & (
+      method_results["threshold"] <= max_threshold
+    )
+  ]
   # define colors
   colors = list(mcolors.TABLEAU_COLORS.values())[1:] + [
     mcolors.CSS4_COLORS["navy"],
@@ -117,6 +134,7 @@ def plot_comparison(
     "min": [],
     "max": []
   }
+  fontsize = 18
   # loop over the number of components
   for idx, n_components in enumerate(n_components_list):
     ax0 = axs[0] if ncols == 1 else axs[0][idx]
@@ -136,7 +154,7 @@ def plot_comparison(
       label = baseline_name,
       ax = ax0,
       grid = True,
-      fontsize = 14,
+      fontsize = fontsize,
       marker = ".",
       markersize = 5,
       linewidth = 1,
@@ -168,14 +186,14 @@ def plot_comparison(
           "threshold": b_res_avg["threshold"]
         })
         # plot
-        cl = f"  RndS: {config_info[1]}\n  SLS: {config_info[2]}\n  #elite: {config_info[3]}"
+        cl = f"  RndS: {config_info[1]}\n  SLS: {config_info[2]}\n  K: {config_info[3]}"
         m_res_avg.plot(
           x = "threshold",
           y = ycol,
           label = f"{method_name}\n{cl}",
           ax = ax0,
           grid = True,
-          fontsize = 14,
+          fontsize = fontsize,
           marker = ".",
           markersize = 5,
           linewidth = 1,
@@ -215,7 +233,7 @@ def plot_comparison(
           y = ycol,
           ax = ax1,
           grid = True,
-          fontsize = 14,
+          fontsize = fontsize,
           marker = ".",
           markersize = 5,
           linewidth = 1,
@@ -262,20 +280,20 @@ def plot_comparison(
       color = "k"
     )
     # add axis info
-    ax0.set_title(f"{n_components} components", fontsize = 14)
+    ax0.set_title(f"{n_components} components", fontsize = fontsize)
     ax0.legend(ncol = 2)
-    ax1.set_xlabel("Global constraint threshold", fontsize = 14)
+    ax1.set_xlabel("Global constraint threshold", fontsize = fontsize)
   if ncols > 1:
-    axs[0][0].set_ylabel(ylabel, fontsize = 14)
-    axs[1][0].set_ylabel(gainlabel, fontsize = 14)
+    axs[0][0].set_ylabel(ylabel, fontsize = fontsize)
+    axs[1][0].set_ylabel(gainlabel, fontsize = fontsize)
     for idx in range(ncols-1):
       axs[0,idx].get_legend().remove()
     axs[0,-1].legend(
-      loc = "center left", bbox_to_anchor = (1, 0.2), fontsize = 14
+      loc = "center left", bbox_to_anchor = (1, -0.1), fontsize = fontsize
     )
   else:
-    axs[0].set_ylabel(ylabel, fontsize = 14)
-    axs[1].set_ylabel(gainlabel, fontsize = 14)
+    axs[0].set_ylabel(ylabel, fontsize = fontsize)
+    axs[1].set_ylabel(gainlabel, fontsize = fontsize)
   if plot_folder is not None:
     plt.savefig(
       os.path.join(plot_folder, f"{ycol}_comparison.png"),
@@ -316,11 +334,11 @@ def plot_comparison(
       linestyle = "dashed",
       color = "k"
     )
-    ax.set_title(f"{n_components} components", fontsize = 14)
-    ax.legend(fontsize = 14)
+    ax.set_title(f"{n_components} components", fontsize = fontsize)
+    ax.legend(fontsize = fontsize)
     ax.grid()
     idx += 1
-  axs[0].set_ylabel(gainlabel, fontsize = 14)
+  axs[0].set_ylabel(gainlabel, fontsize = fontsize)
   if plot_folder is not None:
     plt.savefig(
       os.path.join(plot_folder, f"{ycol}_comparison_avg.png"),
@@ -331,6 +349,11 @@ def plot_comparison(
     plt.close()
   else:
     plt.show()
+  # save averages
+  if plot_folder is not None:
+    averages.to_csv(
+      os.path.join(plot_folder, f"{ycol}_averages.csv"), index = False
+    )
 
 
 def main(result_dirs: list, n_components: list, process_all: bool):
