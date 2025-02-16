@@ -112,7 +112,10 @@ def plot_comparison(
     "n_components": [],
     "config": [],
     "config_idx": [],
-    "avg": []
+    "config_idx_to_plot": [],
+    "avg": [],
+    "min": [],
+    "max": []
   }
   # loop over the number of components
   for idx, n_components in enumerate(n_components_list):
@@ -150,6 +153,7 @@ def plot_comparison(
     )
     # loop over the different configurations
     n_config = 0
+    n_config_to_plot = 0
     for config_info, m_res in all_m_res.groupby(config_cols):
       if n_config not in config_idx_to_drop[n_components]:
         # compute average and standard deviation
@@ -175,7 +179,7 @@ def plot_comparison(
           marker = ".",
           markersize = 5,
           linewidth = 1,
-          color = colors[n_config],
+          color = colors[n_config_to_plot],
           logy = logy
         )
         # confidence intervals
@@ -184,7 +188,7 @@ def plot_comparison(
           y1 = m_res_avg[ycol] - 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
           y2 = m_res_avg[ycol] + 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
           alpha = 0.3,
-          color = colors[n_config]
+          color = colors[n_config_to_plot]
         )
         # # add Xs for unfeasible runs
         # unfeasible = pd.DataFrame()
@@ -215,21 +219,28 @@ def plot_comparison(
           marker = ".",
           markersize = 5,
           linewidth = 1,
-          color = colors[n_config],
+          color = colors[n_config_to_plot],
           label = None,
           legend = False
         )
         ax1.axhline(
           y = avg_gain[avg_gain[ycol].abs() != np.inf][ycol].mean(),
           linewidth = 2,
-          color = colors[n_config]
+          color = colors[n_config_to_plot]
         )
         # save average for barplot
         averages["n_components"].append(n_components)
         averages["config"].append(f"{method_name}\n{cl}")
         averages["config_idx"].append(n_config)
+        averages["config_idx_to_plot"].append(n_config_to_plot)
         averages["avg"].append(
           avg_gain[avg_gain[ycol].abs() != np.inf][ycol].mean()
+        )
+        averages["min"].append(
+          avg_gain[avg_gain[ycol].abs() != np.inf][ycol].min()
+        )
+        averages["max"].append(
+          avg_gain[avg_gain[ycol].abs() != np.inf][ycol].max()
         )
         # if len(unfeasible) > 0:
         #   unfeasible["y"] = [0] * len(unfeasible)
@@ -242,6 +253,7 @@ def plot_comparison(
         #     grid = True,
         #     ax = ax1
         #   )
+        n_config_to_plot += 1
       n_config += 1
     # add horizontal line in zero
     ax1.axhline(
@@ -276,7 +288,7 @@ def plot_comparison(
     plt.show()
   # plot averages as bars
   averages = pd.DataFrame(averages)
-  averages["color"] = [colors[idx] for idx in averages["config_idx"]]
+  hatches = list('-./')
   _, axs = plt.subplots(
     nrows = 1, 
     ncols = ncols, 
@@ -287,24 +299,26 @@ def plot_comparison(
   idx = 0
   for n_components, avgs in averages.groupby("n_components"):
     ax = axs if ncols == 1 else axs[idx]
-    avgs.plot(
-      x = "config_idx",
-      y = "avg",
-      kind = "bar",
-      color = avgs["color"],
-      label = None,
-      legend = False,
-      ax = ax,
-      grid = True,
-      rot = 0,
-      fontsize = 14
-    )
+    for i, c in enumerate(["avg", "min", "max"]):
+      offset = 0.3 - 0.3 * i# if idx == 0
+      ax.bar(
+        x = avgs.index - offset, 
+        height = avgs[c], 
+        width = 0.3, 
+        hatch = hatches[i], 
+        label = c,
+        color = [colors[cidx] for cidx in avgs["config_idx_to_plot"]],
+        edgecolor = "k",
+        alpha = 0.8
+      )
     ax.axhline(
       y = 0,
       linestyle = "dashed",
       color = "k"
     )
     ax.set_title(f"{n_components} components", fontsize = 14)
+    ax.legend(fontsize = 14)
+    ax.grid()
     idx += 1
   axs[0].set_ylabel(gainlabel, fontsize = 14)
   if plot_folder is not None:
