@@ -87,14 +87,55 @@ def plot_comparison(
     plot_folder: str = None,
     logy: bool = False
   ):
-  config_idx_to_drop = {
-    7: [0] + list(range(4,11)), 
-    10: [0, 2, 4, 5, 7, 8], 
-    15: [0, 2, 4, 5, 7, 8]
+  # filter sub-optimal configurations
+  config_to_drop = {
+    7: [
+      {"n_RG_iter": 100, "n_LS_iter": 1000, "n_elite_sol": 20},     # 0
+      {"n_RG_iter": 1000, "n_LS_iter": 5000, "n_elite_sol": 100},   # 4
+      {"n_RG_iter": 1000, "n_LS_iter": 10000, "n_elite_sol": 100},  # 5
+      {"n_RG_iter": 5000, "n_LS_iter": 1000, "n_elite_sol": 100},   # 6
+      {"n_RG_iter": 5000, "n_LS_iter": 5000, "n_elite_sol": 100},   # 7
+      {"n_RG_iter": 5000, "n_LS_iter": 10000, "n_elite_sol": 100},  # 8
+      {"n_RG_iter": 10000, "n_LS_iter": 1000, "n_elite_sol": 100},  # 9
+      {"n_RG_iter": 10000, "n_LS_iter": 5000, "n_elite_sol": 100}   # 10
+    ],
+    10: [
+      {"n_RG_iter": 100, "n_LS_iter": 1000, "n_elite_sol": 20},     # 0
+      {"n_RG_iter": 1000, "n_LS_iter": 1000, "n_elite_sol": 20},    # 2
+      {"n_RG_iter": 1000, "n_LS_iter": 5000, "n_elite_sol": 100},   # 4
+      {"n_RG_iter": 1000, "n_LS_iter": 10000, "n_elite_sol": 100},  # 5
+      {"n_RG_iter": 5000, "n_LS_iter": 5000, "n_elite_sol": 100},   # 7
+      {"n_RG_iter": 5000, "n_LS_iter": 10000, "n_elite_sol": 100},  # 8
+    ],
+    15: [
+      {"n_RG_iter": 100, "n_LS_iter": 1000, "n_elite_sol": 20},     # 0
+      {"n_RG_iter": 1000, "n_LS_iter": 1000, "n_elite_sol": 20},    # 2
+      {"n_RG_iter": 1000, "n_LS_iter": 5000, "n_elite_sol": 100},   # 4
+      {"n_RG_iter": 1000, "n_LS_iter": 10000, "n_elite_sol": 100},  # 5
+      {"n_RG_iter": 5000, "n_LS_iter": 5000, "n_elite_sol": 100},   # 7
+      {"n_RG_iter": 5000, "n_LS_iter": 10000, "n_elite_sol": 100},  # 8
+    ],
   }
+  all_to_keep = pd.DataFrame()
+  for ncomp, configs in config_to_drop.items():
+    to_keep = method_results[method_results["n_components"] == ncomp]
+    for cfg in configs:
+      to_keep = to_keep[
+        ~(
+          (
+            to_keep["n_RG_iter"] == cfg["n_RG_iter"]
+          ) & (
+            to_keep["n_LS_iter"] == cfg["n_LS_iter"]
+          ) & (
+            to_keep["n_elite_sol"] == cfg["n_elite_sol"]
+          )
+        )
+      ]
+    all_to_keep = pd.concat([all_to_keep, to_keep], ignore_index = True)
+  method_results = all_to_keep
   # filter from minimum threshold
   min_threshold = 10
-  max_threshold = 75
+  max_threshold = 80
   baseline_results = baseline_results[
     (
       baseline_results["threshold"] >= min_threshold
@@ -171,107 +212,78 @@ def plot_comparison(
     )
     # loop over the different configurations
     n_config = 0
-    n_config_to_plot = 0
     for config_info, m_res in all_m_res.groupby(config_cols):
-      if n_config not in config_idx_to_drop[n_components]:
-        # compute average and standard deviation
-        m_res_avg = m_res.groupby("exp_id").mean(numeric_only = True)[
-          ["threshold", ycol]
-        ]
-        m_res_avg["std"] = m_res.groupby("exp_id").std(numeric_only = True)[ycol]
-        m_res_avg["n"] = m_res.groupby("exp_id").count()[ycol]
-        # compute gain
-        avg_gain = pd.DataFrame({
-          ycol: (b_res_avg[ycol] - m_res_avg[ycol]) / b_res_avg[ycol] * 100,
-          "threshold": b_res_avg["threshold"]
-        })
-        # plot
-        cl = f"  RndS: {config_info[1]}\n  SLS: {config_info[2]}\n  K: {config_info[3]}"
-        m_res_avg.plot(
-          x = "threshold",
-          y = ycol,
-          label = f"{method_name}\n{cl}",
-          ax = ax0,
-          grid = True,
-          fontsize = fontsize,
-          marker = ".",
-          markersize = 5,
-          linewidth = 1,
-          color = colors[n_config_to_plot],
-          logy = logy
-        )
-        # confidence intervals
-        ax0.fill_between(
-          x = m_res_avg["threshold"],
-          y1 = m_res_avg[ycol] - 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
-          y2 = m_res_avg[ycol] + 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
-          alpha = 0.3,
-          color = colors[n_config_to_plot]
-        )
-        # # add Xs for unfeasible runs
-        # unfeasible = pd.DataFrame()
-        # if "cost" in m_res:
-        #   unfeasible = m_res[
-        #     m_res["cost"] == np.inf # "Unfeasible solution saved"
-        #   ].copy(deep = True)
-        # if len(unfeasible) > 0:
-        #   unfeasible["y"] = [
-        #     m_res.drop(unfeasible.index)[ycol].max()
-        #   ] * len(unfeasible)
-        #   unfeasible.plot.scatter(
-        #     x = "threshold",
-        #     y = "y",
-        #     marker = "*",
-        #     s = 50,
-        #     color = mcolors.TABLEAU_COLORS["tab:red"],
-        #     grid = True,
-        #     ax = ax0
-        #   )
-        # plot gain
-        avg_gain.plot(
-          x = "threshold",
-          y = ycol,
-          ax = ax1,
-          grid = True,
-          fontsize = fontsize,
-          marker = ".",
-          markersize = 5,
-          linewidth = 1,
-          color = colors[n_config_to_plot],
-          label = None,
-          legend = False
-        )
-        ax1.axhline(
-          y = avg_gain[avg_gain[ycol].abs() != np.inf][ycol].mean(),
-          linewidth = 2,
-          color = colors[n_config_to_plot]
-        )
-        # save average for barplot
-        averages["n_components"].append(n_components)
-        averages["config"].append(f"{method_name}\n{cl}")
-        averages["config_idx"].append(n_config)
-        averages["config_idx_to_plot"].append(n_config_to_plot)
-        averages["avg"].append(
-          avg_gain[avg_gain[ycol].abs() != np.inf][ycol].mean()
-        )
-        averages["min"].append(
-          avg_gain[avg_gain[ycol].abs() != np.inf][ycol].min()
-        )
-        averages["max"].append(
-          avg_gain[avg_gain[ycol].abs() != np.inf][ycol].max()
-        )
-        # if len(unfeasible) > 0:
-        #   unfeasible["y"] = [0] * len(unfeasible)
-        #   unfeasible.plot.scatter(
-        #     x = "threshold",
-        #     y = "y",
-        #     marker = "*",
-        #     s = 50,
-        #     color = mcolors.TABLEAU_COLORS["tab:red"],
-        #     grid = True,
-        #     ax = ax1
-        #   )
-        n_config_to_plot += 1
+      n_config_to_plot = n_config
+      if n_components > 7:
+        n_config_to_plot = [0,2,5,8,9][n_config]
+      # compute average and standard deviation
+      m_res_avg = m_res.groupby("exp_id").mean(numeric_only = True)[
+        ["threshold", ycol]
+      ]
+      m_res_avg["std"] = m_res.groupby("exp_id").std(numeric_only = True)[ycol]
+      m_res_avg["n"] = m_res.groupby("exp_id").count()[ycol]
+      # compute gain
+      avg_gain = pd.DataFrame({
+        ycol: (b_res_avg[ycol] - m_res_avg[ycol]) / b_res_avg[ycol] * 100,
+        "threshold": b_res_avg["threshold"]
+      })
+      # plot
+      cl = f"  RndS: {config_info[1]}\n  SLS: {config_info[2]}\n  K: {config_info[3]}"
+      m_res_avg.plot(
+        x = "threshold",
+        y = ycol,
+        label = f"{method_name}\n{cl}",
+        ax = ax0,
+        grid = True,
+        fontsize = fontsize,
+        marker = ".",
+        markersize = 5,
+        linewidth = 1,
+        color = colors[n_config_to_plot],
+        logy = logy
+      )
+      # confidence intervals
+      ax0.fill_between(
+        x = m_res_avg["threshold"],
+        y1 = m_res_avg[ycol] - 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
+        y2 = m_res_avg[ycol] + 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
+        alpha = 0.3,
+        color = colors[n_config_to_plot]
+      )
+      # plot gain
+      avg_gain.plot(
+        x = "threshold",
+        y = ycol,
+        ax = ax1,
+        grid = True,
+        fontsize = fontsize,
+        marker = ".",
+        markersize = 5,
+        linewidth = 1,
+        color = colors[n_config_to_plot],
+        label = None,
+        legend = False
+      )
+      ax1.axhline(
+        y = avg_gain[avg_gain[ycol].abs() != np.inf][ycol].mean(),
+        linewidth = 2,
+        color = colors[n_config_to_plot]
+      )
+      # save average for barplot
+      averages["n_components"].append(n_components)
+      averages["config"].append(f"{method_name}\n{cl}")
+      averages["config_idx"].append(n_config)
+      averages["config_idx_to_plot"].append(n_config_to_plot)
+      averages["avg"].append(
+        avg_gain[avg_gain[ycol].abs() != np.inf][ycol].mean()
+      )
+      averages["min"].append(
+        avg_gain[avg_gain[ycol].abs() != np.inf][ycol].min()
+      )
+      averages["max"].append(
+        avg_gain[avg_gain[ycol].abs() != np.inf][ycol].max()
+      )
+      n_config_to_plot += 1
       n_config += 1
     # add horizontal line in zero
     ax1.axhline(
@@ -286,10 +298,21 @@ def plot_comparison(
   if ncols > 1:
     axs[0][0].set_ylabel(ylabel, fontsize = fontsize)
     axs[1][0].set_ylabel(gainlabel, fontsize = fontsize)
-    for idx in range(ncols-1):
-      axs[0,idx].get_legend().remove()
+    allhandles = []
+    alllabels = []
+    for idx in range(ncols):
+      ax0handles, ax0labels = axs[0,idx].get_legend_handles_labels()
+      for h,l in zip(ax0handles, ax0labels):
+        if l not in alllabels:
+          allhandles.append(h)
+          alllabels.append(l)
+      if idx < ncols - 1:
+        axs[0,idx].get_legend().remove()
     axs[0,-1].legend(
-      loc = "center left", bbox_to_anchor = (1, -0.1), fontsize = fontsize
+      allhandles, alllabels, 
+      loc = "center left", 
+      bbox_to_anchor = (1, -0.1), 
+      fontsize = fontsize
     )
   else:
     axs[0].set_ylabel(ylabel, fontsize = fontsize)
