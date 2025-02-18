@@ -150,6 +150,20 @@ def plot_comparison(
       method_results["threshold"] <= max_threshold
     )
   ]
+  # save filtered results
+  if plot_folder is not None:
+    baseline_results.to_csv(
+      os.path.join(
+        plot_folder, f"{ycol}_filtered_{baseline_name}_results.csv"
+      ), 
+      index = False
+    )
+    method_results.to_csv(
+      os.path.join(
+        plot_folder, f"{ycol}_filtered_{method_name}_results.csv"
+      ), 
+      index = False
+    )
   # define colors
   colors = list(mcolors.TABLEAU_COLORS.values())[1:] + [
     mcolors.CSS4_COLORS["navy"],
