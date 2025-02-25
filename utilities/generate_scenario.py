@@ -134,39 +134,48 @@ def plot_application_graph(DAG: nx.DiGraph, plot_dir: str):
 
 def generate_application_graph(
       n_components: int, 
-      seed: int
+      seed: int,
+      linear_pipeline: bool = False
     ) -> Tuple[dict, nx.DiGraph]:
-    # generate DAG object (edges have random weights)
-    p = 0.8 if n_components > 4 else 1.0
-    done = False
-    while not done:
-        G = nx.gnp_random_graph(n_components-2, p, seed=seed, directed=True)
-        if len(G.nodes()) > 1:
-            DAG = nx.DiGraph(
-              [(u,v,{"weight": np.random.random()}) for (u,v) in G.edges() if u<v]
-            )
-            done = nx.is_directed_acyclic_graph(DAG)
-        else:
-            DAG = nx.DiGraph(G)
-            done = True
-        seed += 1000
-    # define node mapping (mapping = {0: "a", 1: "b", 2: "c"})
-    mapping = {}
-    for node in DAG:
-        mapping[node] = int(node) + 1
-    # rename nodes
-    DAG = nx.relabel_nodes(DAG, mapping)
-    # add source
-    sources = [edge[0] for edge in DAG.in_degree if edge[1]==0]
-    DAG.add_node(0)
-    for node in sources:
-        DAG.add_edge(0, node, weight=np.random.random())
-    # add destination
-    destinations = [edge[0] for edge in DAG.out_degree if edge[1]==0]
-    des = len(DAG.nodes)
-    DAG.add_node(des)
-    for node in destinations:
-        DAG.add_edge(node, des, weight=np.random.random())
+    if not linear_pipeline:
+      # generate random DAG object (edges have random weights)
+      p = 0.8 if n_components > 4 else 1.0
+      done = False
+      while not done:
+          G = nx.gnp_random_graph(n_components-2, p, seed=seed, directed=True)
+          if len(G.nodes()) > 1:
+              DAG = nx.DiGraph(
+                [(u,v,{"weight": np.random.random()}) for (u,v) in G.edges() if u<v]
+              )
+              done = nx.is_directed_acyclic_graph(DAG)
+          else:
+              DAG = nx.DiGraph(G)
+              done = True
+          seed += 1000
+      # define node mapping (mapping = {0: "a", 1: "b", 2: "c"})
+      mapping = {}
+      for node in DAG:
+          mapping[node] = int(node) + 1
+      # rename nodes
+      DAG = nx.relabel_nodes(DAG, mapping)
+      # add source
+      sources = [edge[0] for edge in DAG.in_degree if edge[1]==0]
+      DAG.add_node(0)
+      for node in sources:
+          DAG.add_edge(0, node, weight=np.random.random())
+      # add destination
+      destinations = [edge[0] for edge in DAG.out_degree if edge[1]==0]
+      des = len(DAG.nodes)
+      DAG.add_node(des)
+      for node in destinations:
+          DAG.add_edge(node, des, weight=np.random.random())
+    else:
+      # generate "linear" DAG
+      DAG = nx.DiGraph()
+      DAG.add_node(0)
+      for idx in range(1, n_components):
+        DAG.add_node(idx)
+        DAG.add_edge(idx - 1, idx, weight = 1)
     # read edge weights
     edge_list = list(DAG.in_edges())
     edge_weight_list = []
@@ -430,7 +439,8 @@ def generate_component_matrices(
       max_n_candidates: int,
       resources_list: list,
       resources_data: dict,
-      allow_colocation: bool
+      allow_colocation: bool,
+      logger: space4ai_logger.Logger
     ) -> Tuple[dict, dict, set]:
     component_candidates = {}
     component_performance = {}
@@ -467,6 +477,12 @@ def generate_component_matrices(
             # loop over resources
             partition_candidates = []
             partition_performance = {}
+            if len(resources_sublist) == 0:
+              logger.err(
+                "No candidate resources available! Make sure that at least "
+                f"{max_n_candidates} * {len(components)-1} + 1 resources are "
+                "defined if no colocation is allowed"
+              )
             for resource in resources_sublist:
                 # compatibility matrix entry
                 entry = {
@@ -534,7 +550,8 @@ def filter_used_resources(
 def generate_matrices(
       system: dict, 
       config: dict,
-      faas_per_component: list
+      faas_per_component: list,
+      logger: space4ai_logger.Logger
     ) -> Tuple[dict, dict]:
     components = system["Components"]
     # get configuration parameters
@@ -584,7 +601,8 @@ def generate_matrices(
           max_n_candidates=max_n_candidates,
           resources_list=edge_list,
           resources_data=edge_data,
-          allow_colocation=allow_colocation
+          allow_colocation=allow_colocation,
+          logger=logger
         )
         # update matrices
         compatibility_matrix[component] = candidates
@@ -816,7 +834,7 @@ def generate_instance(
     logger.log("Generate DAG", 1)
     n_components = config["n_components"]
     system["DirectedAcyclicGraph"], DAG = generate_application_graph(
-      n_components, seed
+      n_components, seed, config.get("linear_pipeline", False)
     )
     plot_application_graph(DAG, instance_dir)
     logger.log("*done", 2)
@@ -846,7 +864,8 @@ def generate_instance(
         system["CompatibilityMatrix"], system["Performance"] = generate_matrices(
           system=system,
           config=config,
-          faas_per_component=faas_per_component
+          faas_per_component=faas_per_component,
+          logger=logger
         )
         logger.log("*done", 2)
         # generate local constraints

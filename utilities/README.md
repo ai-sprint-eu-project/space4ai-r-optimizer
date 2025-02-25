@@ -206,6 +206,7 @@ problem instances with the following characteristics:
 * `n_components` application components, with:
   * between 1 and `max_n_deployments` candidate deployments for each component
   * between 1 and `max_n_partitions` partitions for each candidate deployment
+  * if `linear_pipeline` is `true`, the components DAG is linear (no branches)
 * if the `edge_resources` dictionary is defined,
   * `n_layers` computational layers including Edge devices
   * between 1 and `max_n_resources` Edge devices in each layer, with:
@@ -229,7 +230,9 @@ problem instances with the following characteristics:
 
 Furthermore, the configuration file allows to specify:
 * `max_n_candidates`: the maximum number of candidate resources for each 
-component partition
+component partition. **Note:** exactly `max_n_candidates` candidate resources 
+are assigned to each component partition, unless the total number of 
+generated resources does not allow to do so
 * `allow_colocation`: whether multiple partitions can share the same candidate 
 resource (namely, component co-location is allowed)
 * `n_only_edge_components`: the number of components that can be executed 
@@ -273,6 +276,7 @@ The types of all inputs are listed in the following:
 {
   "n_instances": int,
   "n_components": int,
+  "linear_pipeline": bool,
   "max_n_deployments": int,
   "max_n_partitions": int,
   "edge_resources": {
