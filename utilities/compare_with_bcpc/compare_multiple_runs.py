@@ -68,26 +68,14 @@ def add_configuration_info(
   return results
 
 
-def load_results(complete_path: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
-  s4air_results = pd.read_csv(os.path.join(complete_path, "s4air_results.csv"))
-  bcpc_results = pd.read_csv(os.path.join(complete_path, "bcpc_results.csv"))
-  return s4air_results, bcpc_results
-
-
-def plot_comparison(
+def filter_suboptimal_results(
     baseline_results: pd.DataFrame, 
-    method_results: pd.DataFrame, 
-    n_components_list: list, 
-    config_cols: list,
+    method_results: pd.DataFrame,
     ycol: str,
-    ylabel: str,
     baseline_name: str = "BCPC",
     method_name: str = "S4AIR",
-    gainlabel: str = "Average PCR (%)",
-    plot_folder: str = None,
-    logy: bool = False
-  ):
-  # filter sub-optimal configurations
+    output_folder: str = None
+  ) -> Tuple[pd.DataFrame, pd.DataFrame]:
   config_to_drop = {
     7: [
       {"n_RG_iter": 100, "n_LS_iter": 1000, "n_elite_sol": 20},     # 0
@@ -151,19 +139,50 @@ def plot_comparison(
     )
   ]
   # save filtered results
-  if plot_folder is not None:
+  if output_folder is not None:
     baseline_results.to_csv(
       os.path.join(
-        plot_folder, f"{ycol}_filtered_{baseline_name}_results.csv"
+        output_folder, f"{ycol}_filtered_{baseline_name}_results.csv"
       ), 
       index = False
     )
     method_results.to_csv(
       os.path.join(
-        plot_folder, f"{ycol}_filtered_{method_name}_results.csv"
+        output_folder, f"{ycol}_filtered_{method_name}_results.csv"
       ), 
       index = False
     )
+  return baseline_results, method_results
+
+
+def load_results(complete_path: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
+  s4air_results = pd.read_csv(os.path.join(complete_path, "s4air_results.csv"))
+  bcpc_results = pd.read_csv(os.path.join(complete_path, "bcpc_results.csv"))
+  return s4air_results, bcpc_results
+
+
+def plot_comparison(
+    baseline_results: pd.DataFrame, 
+    method_results: pd.DataFrame, 
+    n_components_list: list, 
+    config_cols: list,
+    ycol: str,
+    ylabel: str,
+    baseline_name: str = "BCPC",
+    method_name: str = "S4AIR",
+    gainlabel: str = "Average PCR (%)",
+    plot_folder: str = None,
+    logy: bool = False
+  ):
+  # filter sub-optimal configurations
+  baseline_results, method_results = filter_suboptimal_results(
+    baseline_results, 
+    method_results, 
+    ycol, 
+    baseline_name, 
+    method_name, 
+    plot_folder
+  )
   # define colors
   colors = list(mcolors.TABLEAU_COLORS.values())[1:] + [
     mcolors.CSS4_COLORS["navy"],
@@ -219,8 +238,8 @@ def plot_comparison(
     # confidence intervals
     ax0.fill_between(
       x = b_res_avg["threshold"],
-      y1 = b_res_avg[ycol] - 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
-      y2 = b_res_avg[ycol] + 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
+      y1 = b_res_avg[ycol] - b_res_avg["std"], #0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
+      y2 = b_res_avg[ycol] + b_res_avg["std"], #0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
       alpha = 0.4,
       color = mcolors.TABLEAU_COLORS["tab:blue"]
     )
@@ -259,8 +278,8 @@ def plot_comparison(
       # confidence intervals
       ax0.fill_between(
         x = m_res_avg["threshold"],
-        y1 = m_res_avg[ycol] - 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
-        y2 = m_res_avg[ycol] + 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
+        y1 = m_res_avg[ycol] - m_res_avg["std"], #0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
+        y2 = m_res_avg[ycol] + m_res_avg["std"], #0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
         alpha = 0.3,
         color = colors[n_config_to_plot]
       )
@@ -393,6 +412,182 @@ def plot_comparison(
     )
 
 
+def plot_comparison_paper(
+    baseline_results: pd.DataFrame, 
+    method_results: pd.DataFrame, 
+    n_components_list: list, 
+    config_cols: list,
+    ycol: str,
+    ylabel: str,
+    baseline_name: str = "BCPC",
+    method_name: str = "S4AIR",
+    gainlabel: str = "Average PCR (%)",
+    plot_folder: str = None,
+    logy: bool = False
+  ):
+  # filter sub-optimal configurations
+  baseline_results, method_results = filter_suboptimal_results(
+    baseline_results, 
+    method_results, 
+    ycol, 
+    baseline_name, 
+    method_name, 
+    plot_folder
+  )
+  # define colors
+  colors = list(mcolors.TABLEAU_COLORS.values())[1:] + [
+    mcolors.CSS4_COLORS["navy"],
+    mcolors.CSS4_COLORS["limegreen"],
+    mcolors.CSS4_COLORS["darkred"],
+    mcolors.CSS4_COLORS["purple"]
+  ]
+  # define figure
+  nrows = len(n_components_list)
+  _, axs = plt.subplots(
+    nrows = nrows, 
+    ncols = 1, 
+    sharex = "col",
+    sharey = "row", 
+    figsize = (10, 6 * nrows)
+  )
+  fontsize = 18
+  # loop over the number of components
+  for idx, n_components in enumerate(n_components_list):
+    ax0 = axs if nrows == 1 else axs[idx]
+    b_res = baseline_results[baseline_results["n_components"] == n_components]
+    all_m_res = method_results[method_results["n_components"] == n_components]
+    # compute average and standard deviation for the baseline method
+    b_res_avg = b_res.groupby("exp_id").mean(numeric_only = True)[
+      ["threshold", ycol]
+    ]
+    b_res_avg["std"] = b_res.groupby("exp_id").std(numeric_only = True)[ycol]
+    b_res_avg["n"] = b_res.groupby("exp_id").count()[ycol]
+    if "time" in gainlabel:
+      # plot the baseline result and confidence intervals
+      b_res_avg.plot(
+        x = "threshold",
+        y = ycol,
+        label = baseline_name,
+        ax = ax0,
+        grid = True,
+        fontsize = fontsize,
+        marker = ".",
+        markersize = 5,
+        linewidth = 1,
+        color = mcolors.TABLEAU_COLORS["tab:blue"],
+        logy = logy
+      )
+      # confidence intervals
+      ax0.fill_between(
+        x = b_res_avg["threshold"],
+        y1 = b_res_avg[ycol] - 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
+        y2 = b_res_avg[ycol] + 0.95 * b_res_avg["std"] / b_res_avg["n"].pow(1./2),
+        alpha = 0.4,
+        color = mcolors.TABLEAU_COLORS["tab:blue"]
+      )
+    # loop over the different configurations
+    n_config = 0
+    for config_info, m_res in all_m_res.groupby(config_cols):
+      n_config_to_plot = n_config
+      if n_components > 7:
+        n_config_to_plot = [0,2,5,8,9][n_config]
+      # compute average and standard deviation
+      m_res_avg = m_res.groupby("exp_id").mean(numeric_only = True)[
+        ["threshold", ycol]
+      ]
+      m_res_avg["std"] = m_res.groupby("exp_id").std(numeric_only = True)[ycol]
+      m_res_avg["n"] = m_res.groupby("exp_id").count()[ycol]
+      # compute gain
+      avg_gain = pd.DataFrame({
+        ycol: (b_res_avg[ycol] - m_res_avg[ycol]) / b_res_avg[ycol] * 100,
+        "threshold": b_res_avg["threshold"]
+      })
+      # plot
+      cl = f"  RndS: {config_info[1]}\n  SLS: {config_info[2]}\n  K: {config_info[3]}"
+      if not "time" in gainlabel:
+        # plot gain
+        avg_gain.plot(
+          x = "threshold",
+          y = ycol,
+          ax = ax0,
+          grid = True,
+          fontsize = fontsize,
+          marker = ".",
+          markersize = 10,
+          linewidth = 2,
+          color = colors[n_config_to_plot],
+          label = cl,
+          # legend = False
+        )
+      else:
+        m_res_avg.plot(
+          x = "threshold",
+          y = ycol,
+          label = f"{method_name}\n{cl}",
+          ax = ax0,
+          grid = True,
+          fontsize = fontsize,
+          marker = ".",
+          markersize = 5,
+          linewidth = 1,
+          color = colors[n_config_to_plot],
+          logy = logy
+        )
+        # confidence intervals
+        ax0.fill_between(
+          x = m_res_avg["threshold"],
+          y1 = m_res_avg[ycol] - 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
+          y2 = m_res_avg[ycol] + 0.95 * m_res_avg["std"] / m_res_avg["n"].pow(1./2),
+          alpha = 0.3,
+          color = colors[n_config_to_plot]
+        )
+      n_config_to_plot += 1
+      n_config += 1
+    # add horizontal line in zero
+    ax0.axhline(
+      y = 0,
+      linestyle = "dashed",
+      color = "k"
+    )
+    # add axis info
+    ax0.set_title(f"{n_components} components", fontsize = fontsize, fontweight = "bold")
+    ax0.legend(ncol = nrows)
+    if not "time" in gainlabel:
+      ax0.set_ylabel(gainlabel, fontsize = fontsize)
+    else:
+      ax0.set_ylabel(ylabel, fontsize = fontsize)
+    if idx == nrows - 1:
+      ax0.set_xlabel("Global constraint threshold", fontsize = fontsize)
+  if nrows > 1:
+    allhandles = []
+    alllabels = []
+    for idx in range(nrows):
+      ax0handles, ax0labels = axs[idx].get_legend_handles_labels()
+      for h,l in zip(ax0handles, ax0labels):
+        if l not in alllabels:
+          allhandles.append(h)
+          alllabels.append(l)
+      if idx > 0:
+        axs[idx].get_legend().remove()
+    axs[0].legend(
+      allhandles, alllabels, 
+      loc = "upper center" if "time" not in gainlabel else "center left", 
+      bbox_to_anchor = (0.5, 1.6) if "time" not in gainlabel else (1, -0.8), 
+      fontsize = fontsize,
+      ncols = 3 if "time" not in gainlabel else 1
+    )
+  if plot_folder is not None:
+    plt.savefig(
+      os.path.join(plot_folder, f"{ycol}_comparison_paper.png"),
+      dpi = 300,
+      format = "png",
+      bbox_inches = "tight"
+    )
+    plt.close()
+  else:
+    plt.show()
+
+
 def main(result_dirs: list, n_components: list, process_all: bool):
   base_folder = None
   if process_all:
@@ -434,6 +629,20 @@ def main(result_dirs: list, n_components: list, process_all: bool):
     ylabel = "Cost",
     plot_folder = plot_folder
   )
+  plot_comparison_paper(
+    baseline_results = bcpc_results,
+    method_results = all_s4air_results,
+    n_components_list = [7, 10, 15],
+    config_cols = [
+      "constraints",
+      "n_RG_iter",
+      "n_LS_iter",
+      "n_elite_sol"
+    ],
+    ycol = "cost",
+    ylabel = "Cost",
+    plot_folder = plot_folder
+  )
   # plot runtime comparison
   plot_comparison(
     baseline_results = bcpc_results,
@@ -450,6 +659,22 @@ def main(result_dirs: list, n_components: list, process_all: bool):
     plot_folder = plot_folder,
     gainlabel = "Average time reduction (%)",
     logy = True
+  )
+  plot_comparison_paper(
+    baseline_results = bcpc_results,
+    method_results = all_s4air_results,
+    n_components_list = [7, 10, 15],
+    config_cols = [
+      "constraints",
+      "n_RG_iter",
+      "n_LS_iter",
+      "n_elite_sol"
+    ],
+    ycol = "exec_time",
+    ylabel = "Runtime (s)",
+    plot_folder = plot_folder,
+    gainlabel = "Average time reduction (%)",
+    logy = False
   )
 
 
