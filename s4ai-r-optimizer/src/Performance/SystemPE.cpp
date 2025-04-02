@@ -43,6 +43,7 @@ SystemPE::compute_partition_perf(
   {
     Logger::Trace("Using meanTime for partition " + std::to_string(p_idx));
     t = job_mean_times[comp_idx][r_type_idx][p_idx][r_idx];
+    Logger::Trace("---> " + std::to_string(t));
   }
   else
   {
@@ -51,6 +52,7 @@ SystemPE::compute_partition_perf(
       comp_idx, p_idx, ResTypeFromIdx(r_type_idx), r_idx,
       system.get_system_data(), solution_data
     );
+    Logger::Trace("---> " + std::to_string(t));
   }
 
   return t;
