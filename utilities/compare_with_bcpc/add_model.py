@@ -79,14 +79,56 @@ def update_system_file(filename: str) -> str:
   return new_filename
 
 
+def load_demand_range(filename: str) -> list:
+  system = {}
+  with open(filename, "r") as istream:
+    system = json.load(istream)
+  #
+  d_min = None
+  d_max = None
+  for c_data in system["Performance"].values():
+    for h_data in c_data.values():
+      for f_data in h_data.values():
+        if d_min is None or f_data["demand"] < d_min:
+          d_min = f_data["demand"]
+        if d_max is None or f_data["demand"] > d_max:
+          d_max = f_data["demand"]
+  return [d_min, d_max]
+
+
+def rescale_demand_range(demands: dict, thresholds: dict) -> list:
+  d_min = None
+  d_max = None
+  for scenario, dsval in demands.items():
+    for instance, dival in dsval.items():
+      tival = thresholds[scenario][instance]
+      min_demand_new = [
+        do * tn / to for do, tn, to in zip(
+          dival["min"], tival["rescaled"], tival["original"]
+        ) if 10 <= tn <= 80
+      ]
+      max_demand_new = [
+        do * tn / to for do, tn, to in zip(
+          dival["max"], tival["rescaled"], tival["original"]
+        ) if 10 <= tn <= 80
+      ]
+      if d_min is None or min(min_demand_new) < d_min:
+        d_min = min(min_demand_new)
+      if d_max is None or max(max_demand_new) > d_max:
+        d_max = max(max_demand_new)
+  return [d_min, d_max]
+
+
 def main(base_folder: str, n_components_list: list):
   # loop over scenarios
   thresholds = {}
+  demands = {}
   for n_components in n_components_list:
     scenario = f"{n_components}Components"
     print(f"Processing scenario {scenario}")
     scenario_folder = os.path.join(base_folder, scenario)
     thresholds[scenario] = {}
+    demands[scenario] = {}
     # loop over instances
     for foldername in os.listdir(scenario_folder):
       instance_id = parse("Ins{}", foldername)
@@ -99,17 +141,28 @@ def main(base_folder: str, n_components_list: list):
           "original": [],
           "rescaled": []
         }
+        demands[scenario][f"Ins{instance_id}"] = {
+          "min": [],
+          "max": []
+        }
         tmin = inf
         tmax = 0.0
         for filename in os.listdir(instance_folder):
           if filename.startswith("system_description"):
             tokens = filename.split("_")
             if len(tokens) == 3 and "updated" not in tokens[-1]:
+              # load threshold and update system file
               t = int(tokens[-1].split(".")[0])
               thresholds[scenario][f"Ins{instance_id}"]["original"].append(t)
               tmin = t if t < tmin else tmin
               tmax = t if t > tmax else tmax
-              _ = update_system_file(os.path.join(instance_folder, filename))
+              # _ = update_system_file(os.path.join(instance_folder, filename))
+              # load min/max demand
+              dmin, dmax = load_demand_range(
+                os.path.join(instance_folder, filename)
+              )
+              demands[scenario][f"Ins{instance_id}"]["min"].append(dmin)
+              demands[scenario][f"Ins{instance_id}"]["max"].append(dmax)
         # rescale thresholds
         original = thresholds[scenario][f"Ins{instance_id}"]["original"]
         thresholds[scenario][f"Ins{instance_id}"]["rescaled"] = [
@@ -130,10 +183,26 @@ def main(base_folder: str, n_components_list: list):
               thresholds[key][ikey] = ival
   with open(thresholds_filename, "w") as ostream:
     ostream.write(json.dumps(thresholds, indent = 2))
+  # write all demands (load existing first, if any)
+  demands_filename = os.path.join(base_folder, "demands.json")
+  if os.path.exists(demands_filename):
+    with open(demands_filename, "r") as istream:
+      existing_demands = json.load(istream)
+      # merge
+      for key, val in existing_demands.items():
+        if key not in demands:
+          demands[key] = val
+        else:
+          for ikey, ival in val.items():
+            if ikey not in demands[key]:
+              demands[key][ikey] = ival
+  with open(demands_filename, "w") as ostream:
+    ostream.write(json.dumps(demands, indent = 2))
+  return thresholds, demands
 
 
 if __name__ == "__main__":
   args = parse_arguments()
   base_folder = args.application_dir
   n_components_list = args.n_components
-  main(base_folder, n_components_list)
+  thresholds, demands = main(base_folder, n_components_list)
