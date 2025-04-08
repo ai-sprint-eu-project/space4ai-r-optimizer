@@ -442,18 +442,19 @@ def plot_comparison_paper(
     mcolors.CSS4_COLORS["purple"]
   ]
   # define figure
-  nrows = len(n_components_list)
+  ncols = len(n_components_list)
   _, axs = plt.subplots(
-    nrows = nrows, 
-    ncols = 1, 
+    nrows = 1, 
+    ncols = ncols, 
     sharex = "col",
-    sharey = "row", 
-    figsize = (10, 6 * nrows)
+    sharey = "row" if "time" not in gainlabel else False, 
+    figsize = (10 * ncols, 6)
   )
-  fontsize = 18
+  plt.tight_layout()
+  fontsize = 24
   # loop over the number of components
   for idx, n_components in enumerate(n_components_list):
-    ax0 = axs if nrows == 1 else axs[idx]
+    ax0 = axs if ncols == 1 else axs[idx]
     b_res = baseline_results[baseline_results["n_components"] == n_components]
     all_m_res = method_results[method_results["n_components"] == n_components]
     # compute average and standard deviation for the baseline method
@@ -551,30 +552,32 @@ def plot_comparison_paper(
     )
     # add axis info
     ax0.set_title(f"{n_components} components", fontsize = fontsize, fontweight = "bold")
-    ax0.legend(ncol = nrows)
-    if not "time" in gainlabel:
-      ax0.set_ylabel(gainlabel, fontsize = fontsize)
-    else:
-      ax0.set_ylabel(ylabel, fontsize = fontsize)
-    if idx == nrows - 1:
-      ax0.set_xlabel("Global constraint threshold", fontsize = fontsize)
-  if nrows > 1:
+    ax0.legend(ncol = 2)
+    if idx == 0:
+      if not "time" in gainlabel:
+        ax0.set_ylabel(gainlabel, fontsize = fontsize)
+      else:
+        ax0.set_ylabel(ylabel, fontsize = fontsize)
+    # if idx == nrows - 1:
+    ax0.set_xlabel("Global constraint threshold", fontsize = fontsize)
+  if ncols > 1:
     allhandles = []
     alllabels = []
-    for idx in range(nrows):
+    for idx in range(ncols):
       ax0handles, ax0labels = axs[idx].get_legend_handles_labels()
       for h,l in zip(ax0handles, ax0labels):
         if l not in alllabels:
           allhandles.append(h)
           alllabels.append(l)
-      if idx > 0:
+      if idx < ncols - 1:
         axs[idx].get_legend().remove()
-    axs[0].legend(
+    axs[-1].legend(
       allhandles, alllabels, 
-      loc = "upper center" if "time" not in gainlabel else "center left", 
-      bbox_to_anchor = (0.5, 1.6) if "time" not in gainlabel else (1, -0.8), 
+      # loc = "upper center" if "time" not in gainlabel else "center left", 
+      loc = "center left", 
+      bbox_to_anchor = (1.0, 0.5),# if "time" not in gainlabel else (1, -0.8), 
       fontsize = fontsize,
-      ncols = 3 if "time" not in gainlabel else 1
+      ncols = 2 #if "time" not in gainlabel else 1
     )
   if plot_folder is not None:
     plt.savefig(
