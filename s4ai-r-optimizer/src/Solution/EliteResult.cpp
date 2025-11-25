@@ -46,4 +46,14 @@ EliteResult::print_solution(const System& system, const std::string& path, size_
   }
 }
 
+void
+EliteResult::swap(EliteResult& rhs)
+{
+  solutions.swap(rhs.solutions);
+  std::swap(num_threads, rhs.num_threads);
+
+  if(rhs.max_num_sols > max_num_sols)
+    Logger::Warn("lower max_num_sols; solutions may be lost after the swap");
+}
+
 } //namespace Space4AI

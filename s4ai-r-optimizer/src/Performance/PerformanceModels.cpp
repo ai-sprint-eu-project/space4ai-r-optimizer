@@ -47,9 +47,9 @@ QTPE::predict(
   {
     std::ostringstream err_msg;
     err_msg << "QTPE::predict(): Utilization > 1 of res " << res_idx
-            << " with type idx " << ResIdxFromType(res_type) << std::endl;
+            << " with type idx " << ResIdxFromType(res_type);
     Logger::Debug(err_msg.str());
-    response_time = -1.;  // manage error in the caller function
+    response_time = NaN;
   }
   else
   {
@@ -212,6 +212,7 @@ CoreBasedaMLLibraryPE::predict(
   features["regressor"] = this->regressor_file;
   features["df"] = nlohmann::json();
   features["df"]["cores"] = std::vector<size_t>({cores});
+  features["df"]["log(cores)"] = std::vector<double>({log2(cores)});
 
   // predict
   return this->predictor.predict(features);

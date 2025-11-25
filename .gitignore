@@ -1,2 +1,8 @@
+# I/O files
+example_applications/S4AIRvs*
+example_applications/input/*
+example_applications/output/*
+
+# MacOS files
 .DS_Store
 */.DS_Store

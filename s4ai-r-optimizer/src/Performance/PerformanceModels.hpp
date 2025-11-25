@@ -88,10 +88,23 @@ class BasePerformanceModel
       const SystemData& system_data, const SolutionData& solution_data
     ) const = 0;
 
+    /** Method to compute the utilization of a specific Resource object.
+    *
+    *   \param res_type Type of the Resource
+    *   \param res_idx Resource index
+    *   \param system_data Reference to all the SystemData read from the .json 
+    *                      configuration file
+    *   \param solution_data Reference to the SolutionData, namely 
+    *                        SolutionData.y_hat and SolutionData.used_resources
+    *   \return utilization of the Resource (NaN except for QTPE)
+    */
+    virtual double compute_utilization(
+      ResourceType res_type, size_t res_idx,
+      const SystemData& system_data, const SolutionData& solution_data
+    ) const {return NaN;}
+
     /** virtual destructor */
     virtual ~BasePerformanceModel() = default;
-
-    bool support_meanTime_usage() const {return meanTime_usage_supported;}
 
   protected:
 
@@ -100,10 +113,6 @@ class BasePerformanceModel
 
     /** Boolean variable to determine whether colocation is allowed or not */
     const bool allows_colocation;
-
-    /** Boolean variable to determine whether the average job execution time 
-     * can be used to avoid the pipeline effect */
-    const bool meanTime_usage_supported = false;
 };
 
 /** Class to define queue-servers performance models for Edge and VM. */
@@ -144,7 +153,7 @@ class QTPE: public BasePerformanceModel
     double compute_utilization(
       ResourceType res_type, size_t res_idx,
       const SystemData& system_data, const SolutionData& solution_data
-    ) const;
+    ) const override;
 
     /** all_demands setter */
     template<class T>
@@ -447,10 +456,6 @@ class LambdaBasedaMLLibraryPE: public BasePerformanceModel
     virtual ~LambdaBasedaMLLibraryPE() = default;
 
   private:
-
-    /** Boolean variable to determine whether the average job execution time 
-     * can be used to avoid the pipeline effect */
-    const bool meanTime_usage_supported = true;
 
     /** Regressor file used by aMLLibrary for predictions */
     const std::string regressor_file;

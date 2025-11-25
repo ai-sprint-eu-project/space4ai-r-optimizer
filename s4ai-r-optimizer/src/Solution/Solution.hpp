@@ -28,6 +28,7 @@ Copyright 2021 AI-SPRINT
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <unordered_set>
 
 #include "src/Solution/SelectedResources.hpp"
 #include "src/System/System.hpp"
@@ -92,7 +93,9 @@ class Solution
     *   \param system Object containing all the data structures of the System
     *   \return true if the Solution is feasible, false otherwise
     */
-    bool check_feasibility(const System& system);
+    bool check_feasibility(
+      const System& system, const LocalInfo& local_info = LocalInfo()
+    );
 
     /** Method to check the QoS feasibility of a Solution.
     *
@@ -116,6 +119,10 @@ class Solution
     /** total_cost getter */
     CostType
     get_cost() const {return total_cost; }
+
+    /** solution_data getter */
+    const SolutionData&
+    get_solution_data() const {return solution_data;}
 
     /** y_hat getter */
     const YHatType&
@@ -144,6 +151,16 @@ class Solution
     const SystemPE&
     get_time_perfs() const {return time_perfs;}
 
+    std::vector<std::vector<TimeType>> const* get_local_parts_perfs() const
+    {
+      return time_perfs.get_local_parts_perfs();
+    }
+
+    std::vector<std::vector<TimeType>> const* get_local_parts_delays() const
+    {
+      return time_perfs.get_local_parts_delays();
+    }
+
     /** y_hat setter */
     template <class T>
     void
@@ -169,6 +186,9 @@ class Solution
 
     void
     set_selected_resources(const System& system);
+
+    void
+    set_instance_number(ResourceType res_type, size_t res_idx, size_t n);
 
     /** "<" operator definition:
     *   the solutions will be ordered by cost, meaning that a Solution with a smaller

@@ -630,7 +630,8 @@ def generate_matrices(
           max_n_candidates=max_n_candidates,
           resources_list=edge_cloud_list,
           resources_data=edge_cloud_data,
-          allow_colocation=allow_colocation
+          allow_colocation=allow_colocation,
+          logger=logger
         )
         # update matrices
         compatibility_matrix[component] = candidates
@@ -650,7 +651,8 @@ def generate_matrices(
           max_n_candidates=max_n_candidates,
           resources_list=cloud_list,
           resources_data=cloud_data,
-          allow_colocation=allow_colocation
+          allow_colocation=allow_colocation,
+          logger=logger
         )
         # update matrices
         compatibility_matrix[component] = candidates

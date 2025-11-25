@@ -34,25 +34,20 @@ SystemPE::compute_partition_perf(
 ) const
 {
   TimeType t = -1;
-  const auto& performance_comp = system.get_performance()[comp_idx];
-  bool meanTime_usage_supported = performance_comp[r_type_idx][p_idx][
-    r_idx
-  ]->support_meanTime_usage();
   
-  if (use_meanTime && meanTime_usage_supported)
+  if (!worst_case_analysis && use_meanTime)
   {
     Logger::Trace("Using meanTime for partition " + std::to_string(p_idx));
     t = job_mean_times[comp_idx][r_type_idx][p_idx][r_idx];
-    Logger::Trace("---> " + std::to_string(t));
   }
   else
   {
     Logger::Trace("Using models for partition " + std::to_string(p_idx));
+    const auto& performance_comp = system.get_performance()[comp_idx];
     t = performance_comp[r_type_idx][p_idx][r_idx]->predict(
       comp_idx, p_idx, ResTypeFromIdx(r_type_idx), r_idx,
       system.get_system_data(), solution_data
     );
-    Logger::Trace("---> " + std::to_string(t));
   }
 
   return t;
@@ -76,6 +71,9 @@ SystemPE::compute_local_perf(
   for(size_t i = 0; i < used_resources_comp.size(); ++i)
   {
     const auto& [p_idx, r_type_idx, r_idx] = used_resources_comp[i];
+    Logger::Debug(
+      "*Evaluating performance of partition " + std::to_string(p_idx)
+    );
 
     if(
       // Random Greedy
@@ -83,7 +81,9 @@ SystemPE::compute_local_perf(
       // Ls and I am evaluating a modifed res
       local_info.modified_res[r_type_idx][r_idx]) 
     {
-      bool use_meanTime = (only_meanTime || i < used_resources_comp.size() - 1);
+      bool use_meanTime = (
+        !worst_case_analysis && (only_meanTime || i < used_resources_comp.size() - 1)
+      );
 
       const TimeType perf_p_idx = compute_partition_perf(
         comp_idx, p_idx, r_type_idx, r_idx,
@@ -91,13 +91,12 @@ SystemPE::compute_local_perf(
       );
 
       // this takes into account the compute_utilization.
-      // If utilization > 1, response_time is negative- 
-      // (get_perf_evaluation return -1)
-      // Check lables of response_time (when is negative, NaN, +inf, max ...)
-      local_parts_perfs[comp_idx][i] = perf_p_idx >= 0. ? perf_p_idx : NaN;
+      // If utilization > 1, response_time is NaN
+      local_parts_perfs[comp_idx][i] = perf_p_idx;
     }
     else
     {
+      Logger::Trace("**Resource untouched; using existing value");
       local_parts_perfs[comp_idx][i] = (
         *local_info.old_local_parts_perfs_ptr
       )[comp_idx][i];
@@ -173,8 +172,14 @@ SystemPE::compute_local_perf(
     );
   }
 
-  if (!only_meanTime)
+  if (worst_case_analysis || !only_meanTime)
     comp_perfs[comp_idx] = parts_total_time;
+
+
+  Logger::Debug(
+    "*Time = " + std::to_string(parts_total_time)
+  );
+
   return parts_total_time;
 }
 
@@ -194,6 +199,11 @@ SystemPE::compute_global_perf(
   {
     path_perfs[path_idx] += compute_local_perf(
       comp_idxs[i], system, solution_data, local_info, true
+    );
+    Logger::Debug(
+      "Path response time (no delays) is " + std::to_string(
+        path_perfs[path_idx]
+      )
     );
     
     //DELAYS

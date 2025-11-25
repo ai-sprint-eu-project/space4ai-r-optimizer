@@ -50,8 +50,8 @@ Solution::Solution(const System& system):
 
   time_perfs.local_parts_perfs.resize(comp_size);
   time_perfs.local_parts_delays.resize(comp_size);
-  time_perfs.comp_perfs.resize(comp_size, 0.0);
-  time_perfs.path_perfs.resize(paths_size, 0.0);
+  time_perfs.comp_perfs.resize(comp_size, NaN);
+  time_perfs.path_perfs.resize(paths_size, NaN);
 }
 
 void
@@ -64,13 +64,13 @@ Solution::read_solution_from_file(
 
   if(!file)
   {
-    const std::string err_message = "From *Solution::read_solution_from_file(...)*: Cannot open file" + file_run;
+    const std::string err_message = "From *Solution::read_solution_from_file(...)*: Cannot open file " + file_run;
     Logger::Error(err_message);
     Logger::Error("Exiting without opening the solution...");
     throw std::runtime_error(err_message);
   }
 
-  Logger::Info("solution::read_solution_from_file: Reading Design Time Solution...");
+  Logger::Info("solution::read_solution_from_file: Reading Previous Solution...");
   const auto& comp_name_to_idx = system.get_system_data().get_comp_name_to_idx();
   const auto& part_name_to_part_idx = system.get_system_data().get_part_name_to_part_idx();
   const auto& res_name_to_type_and_idx = system.get_system_data().get_res_name_to_type_and_idx();
@@ -235,9 +235,15 @@ Solution::to_json(const System& system) const
   const auto& components = system_data.get_components();
   const auto& all_resources = system_data.get_all_resources();
   const auto& local_constraints = system_data.get_local_constraints();
+  const auto& performance = system.get_performance();
+
+  std::unordered_set<std::string> unfeasible_components;
+
+  // initialize json
   nl::json jsolution;
   jsolution["Lambda"] = system_data.get_lambda();
   nl::json jcomponents;
+  nl::json jresources;
 
   //loop over components
   for(std::size_t i = 0; i < components.size(); ++i)
@@ -311,7 +317,7 @@ Solution::to_json(const System& system) const
         //get number
         const auto& number = solution_data.y_hat[i][res_type_idx][part_idx][res_idx];
         //create resource json object
-        const nl::json jresource =
+        nl::json jresource =
         {
           {"description", res_description},
           {"cost", res_cost},
@@ -320,6 +326,18 @@ Solution::to_json(const System& system) const
         };
         //populate jcomponents
         jcomponents[comp_name][d_name][part_name][cl_name][res_name] = jresource;
+
+        // if the performance model supports co-location...
+        const auto& model = performance[i][res_type_idx][part_idx][res_idx];
+        if (model->get_allows_colocation())
+        {
+          // ...compute utilization
+          jresource["utilization"] = model->compute_utilization(
+            ResTypeFromIdx(res_type_idx), res_idx, system_data, solution_data
+          );
+        }
+        // populate jresources
+        jresources[res_name] = jresource;
       }
 
       // get partition response time
@@ -329,13 +347,23 @@ Solution::to_json(const System& system) const
         system, solution_data, use_meanTime
       );
       jcomponents[comp_name][d_name][part_name]["response_time"] = t;
+
+      if (std::isnan(t))
+          unfeasible_components.insert(comp_name);
     }
     //get response time of the component i
-    jcomponents[comp_name]["response_time"] = time_perfs.comp_perfs[i];
+    if (unfeasible_components.find(comp_name) == unfeasible_components.end())
+        jcomponents[comp_name]["response_time"] = time_perfs.comp_perfs[i];
+    else
+        jcomponents[comp_name]["response_time"] = NaN;
+    
+    //get response time threshold
     jcomponents[comp_name]["response_time_threshold"] = local_constraints[i].get_max_res_time();
   }
 
   jsolution["components"] = jcomponents;
+  jsolution["Resources"] = jresources;
+  
   //Global constraints
   const auto& global_constraints = system_data.get_global_constraints();
   nl::json jgc;
@@ -351,20 +379,36 @@ Solution::to_json(const System& system) const
     std::vector<std::string> comp_names(comp_idxs.size());
 
     //loop over components and save their names
+    bool any_unfeasible = false;
     for(std::size_t i = 0; i < comp_names.size(); ++i)
     {
       std::size_t comp_idx = comp_idxs[i];
-      comp_names[i] = components[comp_idx].get_name();
+      std::string comp_name = components[comp_idx].get_name();
+      comp_names[i] = comp_name;
+
+      if (
+        ! any_unfeasible && 
+          unfeasible_components.find(comp_name) != unfeasible_components.end()
+      )
+      {
+          any_unfeasible = true;
+      }
     }
 
     //convert the vector comp_names into a json object
     nl::json jpath_comps(comp_names);
+    
     //populate the global constraint json
     jgc[path_name]["components"] = jpath_comps;
+    
     //get path_response_time
-    jgc[path_name]["path_response_time"] = time_perfs.path_perfs[k];
+    if (! any_unfeasible)
+        jgc[path_name]["path_response_time"] = time_perfs.path_perfs[k];
+    else
+        jgc[path_name]["path_response_time"] = NaN;
+    
     //get path_response_time_threshold
-    jgc[path_name]["path_response_time_threshold"] = global_constraints[k].get_max_res_time();
+    jgc[path_name]["global_res_time"] = global_constraints[k].get_max_res_time();
   }
 
   // global constraints
@@ -374,7 +418,7 @@ Solution::to_json(const System& system) const
   jsolution["total_cost"] = total_cost;
   
   // feasibility
-  jsolution["feasible"] = true;
+  jsolution["feasible"] = feasibility;
 
   return jsolution;
 }
@@ -462,6 +506,12 @@ Solution::set_selected_resources(const System& system)
       selected_resources.selected_vms_by_cl[cl_idx] = std::make_pair(true, res_idx);
     }
   }
+}
+
+void
+Solution::set_instance_number(ResourceType res_type, size_t res_idx, size_t n)
+{
+  solution_data.set_instance_number(res_type, res_idx, n);
 }
 
 bool
@@ -745,7 +795,11 @@ Solution::local_constraints_check(const System& system, const LocalInfo& local_i
     }
   }
 
-  Logger::Debug("check_feasibility: DONE Checking local constraints ...");
+  Logger::Debug(
+    "check_feasibility: DONE Checking local constraints ... " + 
+      std::to_string(feasible)
+  );
+
   return feasible;
 }
 
@@ -766,13 +820,17 @@ Solution::global_constraints_check(const System& system, const LocalInfo& local_
     }
   }
 
-  Logger::Debug("check_feasibility: DONE global constraints ...");
+  Logger::Debug(
+    "check_feasibility: DONE global constraints ... " + 
+      std::to_string(feasible)
+  );
+
   return feasible;
 }
 
 bool
 Solution::check_feasibility(
-  const System& system
+  const System& system, const LocalInfo& local_info
 )
 {
   Logger::Debug("check_feasibility: Starting feasibility check of the solution ...");
@@ -785,19 +843,19 @@ Solution::check_feasibility(
 
     if(feasible)
     {
-      feasible = this->performance_assignment_check(system);
+      feasible = this->performance_assignment_check(system, local_info);
 
       if(feasible)
       {
-        feasible = this->memory_constraints_check(system);
+        feasible = this->memory_constraints_check(system, local_info);
 
         if(feasible)
         {
-          feasible = this->local_constraints_check(system);
+          feasible = this->local_constraints_check(system, local_info);
 
           if(feasible)
           {
-            feasible = this->global_constraints_check(system);
+            feasible = this->global_constraints_check(system, local_info);
           }
         }
       }
@@ -827,7 +885,9 @@ Solution::check_QoS_constraints(const System& system)
   if(feasible)
     feasible = this->global_constraints_check(system);
   Logger::Info(
-    "check_feasibility: Done QoS constraints feasibility check."
+    "check_feasibility: Done QoS constraints feasibility check. (" + 
+      std::to_string(feasible) + 
+        ")"
   );
   return feasible;
 }

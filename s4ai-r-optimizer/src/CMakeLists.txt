@@ -10,6 +10,7 @@ configure_file(${CMAKE_SOURCE_DIR}/src/Algorithms/ParallelConfig.hpp.in ${CMAKE_
 
 set(SRCS
 "${CMAKE_SOURCE_DIR}/src/Algorithms/RandomGreedy.cpp;\
+${CMAKE_SOURCE_DIR}/src/Algorithms/UtilizationHeuristic;\
 ${CMAKE_SOURCE_DIR}/src/Algorithms/LocalSearch.cpp;\
 ${CMAKE_SOURCE_DIR}/src/Algorithms/LocalSearchManager.cpp;\
 ${CMAKE_SOURCE_DIR}/src/Graph/Dag.cpp;\
@@ -17,6 +18,7 @@ ${CMAKE_SOURCE_DIR}/src/Performance/PerformanceModels.cpp;\
 ${CMAKE_SOURCE_DIR}/src/Performance/PerformancePredictors.cpp;\
 ${CMAKE_SOURCE_DIR}/src/Performance/SystemPE.cpp;\
 ${CMAKE_SOURCE_DIR}/src/Solution/EliteResult.cpp;\
+${CMAKE_SOURCE_DIR}/src/Solution/SolutionData.cpp;\
 ${CMAKE_SOURCE_DIR}/src/Solution/Solution.cpp;\
 ${CMAKE_SOURCE_DIR}/src/System/SystemData.cpp;\
 ${CMAKE_SOURCE_DIR}/src/System/System.cpp;")

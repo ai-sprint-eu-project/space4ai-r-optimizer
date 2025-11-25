@@ -72,6 +72,9 @@ class SolutionData
     const UsedResourcesNumberType&
     get_n_used_resources() const {return n_used_resources;}
 
+    void
+    set_instance_number(ResourceType res_type, size_t res_idx, size_t n);
+
     /** default destructor */
     ~SolutionData() = default;
 

@@ -4,6 +4,9 @@ target_link_libraries(check_feasibility_exe PRIVATE ${LIB_NAME})
 add_executable(s4air_exe main_s4air.cpp)
 target_link_libraries(s4air_exe PRIVATE ${LIB_NAME})
 
+add_executable(uheur_exe main_uheur.cpp)
+target_link_libraries(uheur_exe PRIVATE ${LIB_NAME})
+
 add_executable(dt_solver main_dt_solver.cpp)
 target_link_libraries(dt_solver PRIVATE ${LIB_NAME})
 

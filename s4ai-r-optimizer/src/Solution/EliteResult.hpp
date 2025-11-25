@@ -84,6 +84,9 @@ class EliteResult
     size_t
     get_num_threads() const { return num_threads; }
 
+    void
+    swap(EliteResult& rhs);
+
   private:
 
     /** Maximum number of solutions to save */

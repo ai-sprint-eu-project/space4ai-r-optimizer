@@ -27,6 +27,8 @@ Copyright 2021 AI-SPRINT
 #define SYSTEMPE_HPP_
 
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
 
 #include "src/Solution/SolutionData.hpp"
 #include "src/System/System.hpp"
@@ -130,6 +132,16 @@ class SystemPE
       SystemPE::job_mean_times = std::forward<T>(job_mean_times_);
     }
 
+    std::vector<std::vector<TimeType>> const* get_local_parts_perfs() const
+    {
+      return &local_parts_perfs;
+    }
+
+    std::vector<std::vector<TimeType>> const* get_local_parts_delays() const
+    {
+      return &local_parts_delays;
+    }
+
 private:
 
     /** Method to compute the network delay due to data transfer
@@ -169,6 +181,8 @@ private:
     inline
     static
     MeanTimeType job_mean_times = {};
+
+    bool worst_case_analysis = true;
 
 };
 

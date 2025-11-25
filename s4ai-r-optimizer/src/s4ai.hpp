@@ -21,6 +21,7 @@ Copyright 2021 AI-SPRINT
 *
 * \author Randeep Singh
 * \author Giulia Mazzilli
+* \author Federica Filippini
 */
 
 #ifndef S4AI_HPP_
@@ -28,6 +29,7 @@ Copyright 2021 AI-SPRINT
 
 #include "src/Logger.hpp"
 
+#include "src/Algorithms/UtilizationHeuristic.hpp"
 #include "src/Algorithms/LocalSearchManager.hpp"
 #include "src/Algorithms/RandomGreedy.hpp"
 #include "src/Solution/Solution.hpp"
