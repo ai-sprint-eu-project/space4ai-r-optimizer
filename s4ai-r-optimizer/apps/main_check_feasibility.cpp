@@ -81,6 +81,7 @@ main(int argc, char** argv)
 
   // QoS constraints check
   bool feasible = current_sol.check_QoS_constraints(system);
+  current_sol.set_feasibility(feasible);
 
   // print the output to a file
   if(feasible)

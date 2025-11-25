@@ -116,6 +116,10 @@ class Solution
     bool
     get_feasibility() const { return feasibility; }
 
+    /** feasibility setter -- to be used only in main_check_feasibility */
+    void
+    set_feasibility(bool f) { feasibility = f; }
+
     /** total_cost getter */
     CostType
     get_cost() const {return total_cost; }
