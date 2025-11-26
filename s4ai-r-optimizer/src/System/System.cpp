@@ -30,7 +30,10 @@ namespace Space4AI
 {
 void
 System::read_configuration_file(
-  const std::string& system_file, LoadType lambda_, double energy_cost_pct_
+  const std::string& system_file, 
+  LoadType lambda_, 
+  double bandwidth_,
+  double energy_cost_pct_
 )
 {
   std::ifstream file(system_file);
@@ -51,7 +54,9 @@ System::read_configuration_file(
   }
 
   Logger::Info("****** SYSTEM DATA ... ******");
-  this->system_data.read_json(configuration_file, lambda_, energy_cost_pct_);
+  this->system_data.read_json(
+    configuration_file, lambda_, bandwidth_, energy_cost_pct_
+  );
   Logger::Info("********** DONE! **********");
 
   if(configuration_file.contains("Performance"))

@@ -63,6 +63,7 @@ class System
     void read_configuration_file(
       const std::string& system_file, 
       LoadType lambda_ = NaN, 
+      double bandwidth_ = NaN, 
       double energy_cost_pct_ = 1.0
     );
 

@@ -15,17 +15,18 @@ if [ "$1" = "-h" ] || [ "$1" == "--help" ]; then
 else
   EXP_DIR=$1
   LAMBDA=$2
-  NSCENARIOS=$3
-  NINSTANCES=$4
-  RULE=$5
-  MINU=$6
-  MAXU=$7
-  DECRP=$8
-  INCRP=$9
-  VERBOSE=${10}
+  BANDWIDTH=$3
+  NSCENARIOS=$4
+  NINSTANCES=$5
+  RULE=$6
+  MINU=$7
+  MAXU=$8
+  DECRP=$9
+  INCRP=${10}
+  VERBOSE=${11}
   for s in $(seq 0 ${NSCENARIOS}); do
     echo "Scenario ${s}"
-    BASE_DIR=/mnt/${EXP_DIR}/Lambda_${LAMBDA}
+    BASE_DIR=/mnt/${EXP_DIR}/Lambda_${LAMBDA}-Bandwidth_${BANDWIDTH}
     if [ -d ${BASE_DIR}/Scenario${s} ]; then
       LOG_DIR=${BASE_DIR}/Scenario${s}/logs
       mkdir -p ${LOG_DIR}
@@ -35,6 +36,7 @@ else
         if [ -d ${APP_DIR} ]; then
           LOG_FILE=${LOG_DIR}/compare_heuristics_${i}.log 
           cp ${BASE_DIR}/LambdaValues.json ${APP_DIR}
+          cp ${BASE_DIR}/BandwidthValues.json ${APP_DIR}
           python3 compare_heuristics.py --application_dir ${APP_DIR} \
                                         --heuristic_rule ${RULE} \
                                         --min_utilization ${MINU} \

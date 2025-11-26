@@ -37,8 +37,9 @@ main(int argc, char** argv)
     throw std::runtime_error(err_msg);
   }
 
-  // initialize workload
+  // initialize workload and bandwidth
   const auto lambda = basic_config.at("Lambda").get<sp::LoadType>();
+  const auto bandwidth = basic_config.at("Bandwidth").get<double>();
 
   // initialize algorithm parameters
   const auto& algo_config = basic_config.at("Algorithm");
@@ -79,6 +80,7 @@ main(int argc, char** argv)
   system.read_configuration_file(
     system_config_file, 
     lambda, 
+    bandwidth,
     energy_cost_pct
   );
 

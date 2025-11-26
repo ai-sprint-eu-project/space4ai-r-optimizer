@@ -68,6 +68,7 @@ class SystemData
     read_json(
       const nl::json& configuration_file, 
       LoadType lambda_ = NaN, 
+      double bandwidth_ = NaN, 
       double energy_cost_pct_ = 1.0
     );
 
@@ -196,7 +197,9 @@ class SystemData
     *                                  description of the network technology
     */
     void 
-    initialize_network_technology(const nl::json& network_technology_json);
+    initialize_network_technology(
+      const nl::json& network_technology_json, double bandwidth_ = NaN
+    );
 
     /** Method to initialize the LocalConstraint constraints.
     *

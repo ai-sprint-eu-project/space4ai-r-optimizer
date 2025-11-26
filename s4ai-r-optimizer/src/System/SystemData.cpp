@@ -33,6 +33,7 @@ void
 SystemData::read_json(
   const nl::json& configuration_file, 
   LoadType lambda_, 
+  double bandwidth_, 
   double energy_cost_pct_
 )
 {
@@ -204,7 +205,7 @@ SystemData::read_json(
   {
     Logger::Info("Reading NetworkTechnology...");
     this->initialize_network_technology(
-      configuration_file.at("NetworkTechnology")
+      configuration_file.at("NetworkTechnology"), bandwidth_
     );
     Logger::Info("Done!");
   }
@@ -512,7 +513,7 @@ SystemData::initialize_compatibility_matrix(const nl::json& comp_matrix_json)
 
 void
 SystemData::initialize_network_technology(
-  const nl::json& network_technology_json
+  const nl::json& network_technology_json, double bandwidth_
 )
 {
   std::string debug_message;
@@ -531,12 +532,24 @@ SystemData::initialize_network_technology(
       );
     }
 
-    this->network_domains.emplace_back(
-      name,
-      cls_names,
-      value.at("AccessDelay").get<TimeType>(),
-      value.at("Bandwidth").get<double>()
-    );
+    if(!std::isnan(bandwidth_))
+    {
+      this->network_domains.emplace_back(
+        name,
+        cls_names,
+        value.at("AccessDelay").get<TimeType>(),
+        bandwidth_
+      );
+    }
+    else
+    {
+      this->network_domains.emplace_back(
+        name,
+        cls_names,
+        value.at("AccessDelay").get<TimeType>(),
+        value.at("Bandwidth").get<double>()
+      );
+    }
     Logger::Debug("Done!");
   }
 

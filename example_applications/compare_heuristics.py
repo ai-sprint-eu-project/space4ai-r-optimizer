@@ -89,15 +89,15 @@ def convert_verbosity_level(verbosity_level: str, who: str) -> int:
         return -1
 
 
-def get_workload_list(application_dir: str) -> list:
+def get_data_list(application_dir: str, key: str = "Lambda") -> list:
     """
-    Get list of workload values from file
+    Get list of trace values from file
     """
-    lambdas = []
-    workload_file = os.path.join(application_dir, "LambdaValues.json")
-    with open(workload_file, "r") as istream:
-        lambdas = json.load(istream)["LambdaVec"]
-    return lambdas
+    values = []
+    trace_file = os.path.join(application_dir, f"{key}Values.json")
+    with open(trace_file, "r") as istream:
+        values = json.load(istream)[f"{key}Vec"]
+    return values
 
 
 def write_config_file(config: dict, config_file: str):
@@ -111,6 +111,7 @@ def write_config_file(config: dict, config_file: str):
 def build_optimizer_config(
       args: argparse.Namespace,
       workload: float,
+      bandwidth: float,
       dt_solution_file: str
     ) -> dict:
     """
@@ -122,6 +123,7 @@ def build_optimizer_config(
       "ConfigFiles": [os.path.join(args.application_dir, "SystemFile.json")],
       "DTSolutions": [dt_solution_file],
       "Lambda": workload,
+      "Bandwidth": bandwidth,
       "Logger": {
         "priority": verbosity_level,
         "terminal_stream": True,
@@ -134,12 +136,17 @@ def build_optimizer_config(
 def build_s4air_config(
       config: dict, 
       workload: float,
+      bandwidth: float,
       dir: str
     ) -> str:
     """
     Complete the configuration file for space4ai-r and write it to a file
     """
-    config["OutputFiles"] = [os.path.join(dir, f"Lambda_{workload}.json")]
+    config["OutputFiles"] = [
+      os.path.join(
+        dir, f"Solution-lambda_{workload}-bandwidth_{bandwidth}.json"
+      )
+    ]
     config["Algorithm"] = {
       "RG_n_iterations": 100,
       "LS_n_iterations": 10,
@@ -156,6 +163,7 @@ def build_uheur_config(
       config: dict, 
       args: argparse.Namespace,
       workload: float,
+      bandwidth: float,
       dir: str,
       current_solution_file: str = None
     ) -> str:
@@ -163,7 +171,11 @@ def build_uheur_config(
     Complete the configuration file for utilization heuristic and write it 
     to a file
     """
-    config["OutputFiles"] = [os.path.join(dir, f"Lambda_{workload}.json")]
+    config["OutputFiles"] = [
+      os.path.join(
+        dir, f"Solution-lambda_{workload}-bandwidth_{bandwidth}.json"
+      )
+    ]
     config["Algorithm"] = {
       "UtilizationHeuristic": {
         "rule": args.heuristic_rule,
@@ -192,13 +204,16 @@ def build_uheur_config(
 def get_current_solution(
       application_dir: str,
       lambdas: list, 
+      bandwidths: list, 
       i: int, 
       last_feasible: str, 
       logger: space4ai_logger.Logger
     ) -> Tuple[str, str]:
     current_solution_file = None
     if i > 0:
-        current_solution_file = f"Lambda_{lambdas[i]}.json"
+        current_solution_file = (
+          f"Solution-lambda_{lambdas[i]}-bandwidth_{bandwidths[i]}.json"
+        )
         logger.log(f"Current solution is: {current_solution_file}")
         # check if file exists
         filepath = os.path.join(application_dir, current_solution_file)
@@ -230,31 +245,40 @@ def main(
     # define utilization heuristic executable
     uheur_optimizer = "s4ai-r-optimizer/BUILD/apps/uheur_exe"
     # get list of workload values
-    lambdas = get_workload_list(args.application_dir)
+    lambdas = get_data_list(args.application_dir, "Lambda")
+    bandwidths = get_data_list(args.application_dir, "Bandwidth")
     dtw = lambdas[0]
-    dt_solution_file = os.path.join(args.application_dir, f"Lambda_{dtw}.json")
+    dtb = bandwidths[0]
+    dt_solution_file = os.path.join(
+      args.application_dir, f"Solution-lambda_{dtw}-bandwidth_{dtb}.json"
+    )
     # loop over workloads (skip design-time)
     global_output = 0
     last_feasible = None
-    for i, workload in enumerate(lambdas[1:]):
+    for i, (workload, bandwidth) in enumerate(zip(lambdas[1:],bandwidths[1:])):
         logger.log(f"Optimizing workload {workload}")
         # define base configuration dictionary
-        config = build_optimizer_config(args, workload, dt_solution_file)
+        config = build_optimizer_config(
+          args, workload, bandwidth, dt_solution_file
+        )
         # define directory and configuration file for space4ai-r
         s4air_dir = os.path.join(args.application_dir, "s4air")
         os.makedirs(s4air_dir, exist_ok=True)
-        s4air_config_file = build_s4air_config(config, workload, s4air_dir)
+        s4air_config_file = build_s4air_config(
+          config, workload, bandwidth, s4air_dir
+        )
         logger.log(f"Written configuration file: {s4air_config_file}", 4)
         # define directory and configuration file for utilization heuristic
         uheur_dir = os.path.join(args.application_dir, "uheur")
         os.makedirs(uheur_dir, exist_ok=True)
         current_solution_file, last_feasible = get_current_solution(
-          uheur_dir, lambdas, i, last_feasible, logger
+          uheur_dir, lambdas, bandwidths, i, last_feasible, logger
         )
         uheur_config_file = build_uheur_config(
           config, 
           args,
           workload, 
+          bandwidth,
           uheur_dir,
           current_solution_file
         )
