@@ -201,7 +201,7 @@ SystemPE::compute_global_perf(
       comp_idxs[i], system, solution_data, local_info, true
     );
     Logger::Debug(
-      "Path response time (no delays) is " + std::to_string(
+      "Path response time (no current component delay) is " + std::to_string(
         path_perfs[path_idx]
       )
     );
@@ -269,6 +269,10 @@ SystemPE::compute_global_perf(
         );
     }
     path_perfs[path_idx] += delay_total_time;
+
+    Logger::Debug(
+      "Current component delay is " + std::to_string(delay_total_time)
+    );
   }
   
   // last component
@@ -320,6 +324,12 @@ SystemPE::compute_network_delay(
       *network_domains_intersect.begin()
     ].get_bandwidth();
     network_delay = access_delay + (data_size / bandwidth);
+
+    Logger::Trace(
+      "*Delay is " + std::to_string(access_delay) + " + " +
+      std::to_string(data_size) + "/" + std::to_string(bandwidth) + 
+      " = " + std::to_string(network_delay)
+    );
   }
   else // more than one network_domain
   {
