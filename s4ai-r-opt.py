@@ -42,6 +42,12 @@ def parse_arguments() -> argparse.Namespace:
       type=float
     )
     parser.add_argument(
+      "--bandwidth", 
+      help="Bandwidth", 
+      type=float,
+      default=None
+    )
+    parser.add_argument(
       "--on_edge", 
       help="True if the optimizer should consider only edge resources", 
       default=False, 
@@ -86,6 +92,11 @@ def parse_arguments() -> argparse.Namespace:
       "--log_on_file", 
       help="True to print logging info to a s4ai-r-LOG.log file",
       default=False, 
+      action="store_true"
+    )
+    parser.add_argument(
+      "--aisprint",
+      default=False,
       action="store_true"
     )
     args, _ = parser.parse_known_args()
@@ -211,11 +222,13 @@ def build_optimizer_config(
         "file_stream": False,#args.log_on_file
       }
     }
+    if args.bandwidth is not None:
+        config["Bandwidth"] = args.bandwidth
     # write configuration dict to file
     config_file = os.path.join(
       MOUNT_POINT, 
       args.application_dir, 
-      "space4ai-r/Config.json"
+      "space4ai-r/Config.json" if args.aisprint else "space4air/Config.json"
     )
     write_config_file(config, config_file)
     return config_file
@@ -254,14 +267,37 @@ def check_workload(args: argparse.Namespace, alternative_deployment: str):
     return admissible_load
 
 
-def main(
+def optimize(
+      system_file: str, 
+      new_deployment_file: str, 
+      optimizer: str,
+      logger: space4ai_logger.Logger,
+      log_file: str
+    ) -> int:
+    # generate configuration dictionary for s4ai-r
+    logger.log("Generate space4ai-r configuration")
+    config_file = build_optimizer_config(
+      system_file=system_file,
+      new_deployment_file=new_deployment_file,
+      args=args
+    )
+    # run the optimizer
+    command = f"{optimizer} {config_file}"
+    logger.log(f"Running command `{command}`")
+    if args.log_on_file:
+        command += f" >> {log_file} 2>&1"
+    out = os.system(command)
+    return out
+
+
+def main_aisprint(
       args: argparse.Namespace, 
       logger: space4ai_logger.Logger,
       log_file: str
     ) -> int:
     """
-    Main function: generate space4ai-r-optimizer input, run the optimizer, 
-    convert the output to a yaml file
+    Main function (AI-SPRINT): generate space4ai-r-optimizer input, run the 
+    optimizer, convert the output to a yaml file
     """
     # define space4ai-r optimizer executable
     optimizer = "s4ai-r-optimizer/BUILD/apps/s4air_exe"
@@ -298,19 +334,9 @@ def main(
                 on_edge=args.on_edge
             )
             if optimizable:
-                # generate configuration dictionary for s4ai-r
-                logger.log("Generate space4ai-r configuration")
-                config_file = build_optimizer_config(
-                  system_file=system_file,
-                  new_deployment_file=new_deployment_file,
-                  args=args
+                out = optimize(
+                  system_file, new_deployment_file, optimizer, logger, log_file
                 )
-                # run the optimizer
-                command = f"{optimizer} {config_file}"
-                logger.log(f"Running command `{command}`")
-                if args.log_on_file:
-                    command += f" &>> {log_file}"
-                out = os.system(command)
                 # if the run is successful, convert the output file to YAML
                 if out == 0:
                     logger.log("Write output YAML file")
@@ -368,6 +394,39 @@ def main(
     return out
 
 
+def main(
+      args: argparse.Namespace, 
+      logger: space4ai_logger.Logger,
+      log_file: str
+    ) -> int:
+    """
+    Main function: generate space4ai-r-optimizer input, run the 
+    optimizer, convert the output to a yaml file
+    """
+    # define space4ai-r optimizer executable
+    optimizer = "s4ai-r-optimizer/BUILD/apps/s4air_exe"
+    # define the output file
+    application_dir = os.path.join(MOUNT_POINT, args.application_dir)
+    output_dir = os.path.join(application_dir, "space4air")
+    fname = f"Lambda_{args.load}"
+    if args.bandwidth is not None:
+      fname = f"Solution-{fname}-Bandwidth_{args.bandwidth}"
+    new_deployment_file = os.path.join(output_dir, f"{fname}.json")
+    os.makedirs(output_dir, exist_ok = True)
+    # optimize
+    system_file = None
+    if args.bandwidth is not None:
+        system_file = os.path.join(application_dir, "SystemFile.json")
+    else:
+        system_file = os.path.join(
+          application_dir.replace("output", "input"), "SystemFile.json"
+        )
+    out = optimize(
+      system_file, new_deployment_file, optimizer, logger, log_file
+    )
+    return out
+
+
 if __name__ == "__main__":
     # parse input arguments
     args = parse_arguments()
@@ -383,13 +442,17 @@ if __name__ == "__main__":
         log_file = os.path.join(
           MOUNT_POINT, 
           args.application_dir, 
-          "space4ai-r", 
+          "space4ai-r" if args.aisprint else "", 
           "s4ai-r-LOG.log"
         )
         log_stream = open(log_file, "a")
         logger.out_stream = log_stream
     # run and print output
-    out = main(args, logger, log_file)
+    out = None
+    if args.aisprint:
+      out = main_aisprint(args, logger, log_file)
+    else:
+      out = main(args, logger, log_file)
     logger.log(f"S4AI-R optimizer returned output: {out}")
     # close logger stream
     if args.log_on_file:
