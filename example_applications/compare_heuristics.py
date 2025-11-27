@@ -236,14 +236,26 @@ def get_current_solution(
     return current_solution_file, last_feasible
 
 
+def build_uheur_directory(args: argparse.Namespace) -> str:
+    argsdir = f"{args.heuristic_rule}_{args.min_utilization}_{args.max_utilization}"
+    if args.heuristic_rule == "percentage":
+        argsdir += f"_{args.decr_percentage}_{args.incr_percentage}"
+    uheur_dir = os.path.join(args.application_dir, "uheur", argsdir)
+    os.makedirs(uheur_dir, exist_ok=True)
+    return uheur_dir
+
+
 def main(
       args: argparse.Namespace, 
       logger: space4ai_logger.Logger
     ) -> int:
-    # define space4ai-r optimizer executable
+    # define space4ai-r optimizer & utilization heuristic executable
     s4air_optimizer = "s4ai-r-optimizer/BUILD/apps/s4air_exe"
-    # define utilization heuristic executable
     uheur_optimizer = "s4ai-r-optimizer/BUILD/apps/uheur_exe"
+    # define base methods results directories
+    s4air_dir = os.path.join(args.application_dir, "s4air")
+    os.makedirs(s4air_dir, exist_ok=True)
+    uheur_dir = build_uheur_directory(args)
     # get list of workload values
     lambdas = get_data_list(args.application_dir, "Lambda")
     bandwidths = get_data_list(args.application_dir, "Bandwidth")
@@ -262,15 +274,11 @@ def main(
           args, workload, bandwidth, dt_solution_file
         )
         # define directory and configuration file for space4ai-r
-        s4air_dir = os.path.join(args.application_dir, "s4air")
-        os.makedirs(s4air_dir, exist_ok=True)
         s4air_config_file = build_s4air_config(
           config, workload, bandwidth, s4air_dir
         )
         logger.log(f"Written configuration file: {s4air_config_file}", 4)
         # define directory and configuration file for utilization heuristic
-        uheur_dir = os.path.join(args.application_dir, "uheur")
-        os.makedirs(uheur_dir, exist_ok=True)
         current_solution_file, last_feasible = get_current_solution(
           uheur_dir, lambdas, bandwidths, i, last_feasible, logger
         )
