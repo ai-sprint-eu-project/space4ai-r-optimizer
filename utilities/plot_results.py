@@ -69,18 +69,18 @@ def parse_arguments() -> argparse.Namespace:
     return args
 
 
-def get_workload_profile(dir: str) -> pd.DataFrame:
-    lambdas = []
-    workload_file = os.path.join(dir, "LambdaValues.json")
-    with open(workload_file, "r") as istream:
-        lambdas = json.load(istream)["LambdaVec"]
-    workload_profile = pd.DataFrame({
-      "time": [i * TIME_STEP for i in range(len(lambdas))],
-      "workload": lambdas,
-      "workload_str": [str(l) for l in lambdas],
-      "solution_idx": list(range(len(lambdas)))
+def get_trace_profile(dir: str, key: str = "Lambda") -> pd.DataFrame:
+    values = []
+    trace_file = os.path.join(dir, f"{key}Values.json")
+    with open(trace_file, "r") as istream:
+        values = json.load(istream)[f"{key}Vec"]
+    trace = pd.DataFrame({
+      "time": [i * TIME_STEP for i in range(len(values))],
+      key: values,
+      f"{key}_str": [str(l) for l in values],
+      "solution_idx": list(range(len(values)))
     })
-    return workload_profile
+    return trace
 
 
 def parse_output(
@@ -153,14 +153,22 @@ def parse_output(
     return feasible, resources, response_times, assignments, GC, cost
 
 
-def get_design_time_solution(solution_dir: str, workload: float):
-    solution_file = os.path.join(solution_dir, f"Lambda_{workload}.json")
+def get_design_time_solution(
+      solution_dir: str, workload: float, bandwidth: float
+    ):
+    solution_file = os.path.join(
+      solution_dir, f"Solution-lambda_{workload}-bandwidth_{bandwidth}.json"
+    )
     if os.path.exists(solution_file):
         return parse_output(solution_file, True)
     return None
 
 
-def get_solutions(solution_dir: str, workload_profile: pd.DataFrame):
+def get_solutions(
+      solution_dir: str, 
+      workload_profile: pd.DataFrame, 
+      bandwidth_profile: pd.DataFrame
+    ):
     # loop over directory content
     resources = pd.DataFrame()
     response_times = {"local": pd.DataFrame(), "global": {}}
@@ -168,8 +176,11 @@ def get_solutions(solution_dir: str, workload_profile: pd.DataFrame):
     feasibility = []
     cost = []
     solution_idx = 1
-    for workload in workload_profile.iloc[1:]["workload_str"]:
-        filename = f"Lambda_{workload}.json"
+    for workload, bandwidth in zip(
+          workload_profile.iloc[1:]["Lambda_str"],
+          bandwidth_profile.iloc[1:]["Bandwidth_str"]
+        ):
+        filename = f"Solution-lambda_{workload}-bandwidth_{bandwidth}.json"
         solution_file = os.path.join(solution_dir, filename)
         if os.path.exists(solution_file):
             feasible, r, rt, a, GC, c = parse_output(solution_file)
@@ -194,33 +205,36 @@ def get_solutions(solution_dir: str, workload_profile: pd.DataFrame):
     return resources, response_times, assignments, cost, feasibility
 
 
-def plot_workload_profile(
-        workload_profile: pd.DataFrame, 
-        lambda_max: float,
+def plot_trace(
+        trace: pd.DataFrame, 
+        reference_value: float,
+        reference_label: str,
+        key: str,
+        key_label: str,
         plot_dir: str
     ):
     _, ax = plt.subplots()
-    workload_profile.iloc[1:].plot(
+    trace.iloc[1:].plot(
       x = "time",
-      y = "workload",
+      y = key,
       marker = ".",
       fontsize = 14,
       ax = ax,
       linewidth = 2,
-      label = "$\lambda$"
+      label = key_label
     )
     ax.axhline(
-      y = lambda_max,
+      y = reference_value,
       linestyle = "dashed",
       color = mcolors.TABLEAU_COLORS["tab:red"],
       linewidth = 2,
-      label = "$\lambda_{max}$"
+      label = reference_label
     )
     ax.set_xlabel("time [min]", fontsize = 14)
-    ax.set_ylabel("workload [req/s]", fontsize = 14)
+    ax.set_ylabel(f"{key_label} [req/s]", fontsize = 14)
     ax.legend(fontsize = 14)
     plt.savefig(
-        os.path.join(plot_dir, "workload.png"),
+        os.path.join(plot_dir, f"{key}.png"),
         dpi = 300,
         format = "png",
         bbox_inches = "tight"
@@ -304,7 +318,10 @@ def plot_expected_utilization(
     _, ax = plt.subplots()
     for key, data in results.groupby(results.index):
         if key != 0:
-            n = [design_time_solution[1].loc[key]["number"]] + list(data.iloc[:-1]["number"])
+            n_dt = design_time_solution[1].loc[key]["number"]
+            if isinstance(n_dt, pd.Series):
+                n_dt = n_dt.iloc[0]
+            n = [n_dt] + list(data.iloc[:-1]["number"])
             u = data["utilization"] * data["number"] / n
             df = pd.DataFrame({
                 "time": list(workload_profile.iloc[1:]["time"]),
@@ -462,6 +479,8 @@ def plot_n_instances(
     for key, data in results.groupby(results.index):
         if key != 0:
             n_dt = design_time_solution[1].loc[key]["number"]
+            if isinstance(n_dt, pd.Series):
+                n_dt = n_dt.iloc[0]
             df = pd.DataFrame({
                 "time": list(workload_profile.iloc[1:]["time"]),
                 "solution_idx": list(workload_profile.iloc[1:]["solution_idx"])
@@ -503,6 +522,7 @@ def plot_n_instances(
 def evaluate_heuristic(
         dir: str, 
         workload_profile: pd.DataFrame,
+        bandwidth_profile: pd.DataFrame,
         heuristic: str,
         design_time_solution: pd.DataFrame,
         plot_dir: str,
@@ -513,7 +533,7 @@ def evaluate_heuristic(
     # get solution data
     solution_dir = os.path.join(dir, heuristic)
     resources, response_times, assignments, cost, feasibility = get_solutions(
-      solution_dir, workload_profile
+      solution_dir, workload_profile, bandwidth_profile
     )
     # define global constraints
     global_constraints = pd.DataFrame()
@@ -682,12 +702,31 @@ def evaluate_instance(
     # create directory to store figures
     plot_dir = os.path.join(instance_dir, "figures")
     os.makedirs(plot_dir, exist_ok=True)
-    # get and plot workload profile
-    workload_profile = get_workload_profile(instance_dir)
-    lambda_max = workload_profile.iloc[0]["workload_str"]
-    plot_workload_profile(workload_profile, float(lambda_max), plot_dir)
+    # get and plot workload profile and bandwidth
+    workload_profile = get_trace_profile(instance_dir, "Lambda")
+    lambda_max = workload_profile.iloc[0]["Lambda_str"]
+    plot_trace(
+      workload_profile, 
+      float(lambda_max), 
+      "$\lambda_{max}$",
+      "Lambda",
+      "$\lambda$",
+      plot_dir
+    )
+    bandwidth_profile = get_trace_profile(instance_dir, "Bandwidth")
+    bandwidth_min = bandwidth_profile.iloc[0]["Bandwidth_str"]
+    plot_trace(
+      bandwidth_profile, 
+      float(bandwidth_min), 
+      "bandwidth$_{min}$",
+      "Bandwidth",
+      "bandwidth",
+      plot_dir
+    )
     # get design-time solution
-    design_time_solution = get_design_time_solution(instance_dir, lambda_max)
+    design_time_solution = get_design_time_solution(
+      instance_dir, lambda_max, bandwidth_min
+    )
     if design_time_solution is not None:
         # get and plot heuristics result
         results = {}
@@ -707,6 +746,7 @@ def evaluate_instance(
                 results[heuristic] = evaluate_heuristic(
                     instance_dir, 
                     workload_profile, 
+                    bandwidth_profile, 
                     heuristic, 
                     design_time_solution, 
                     plot_dir,
@@ -841,7 +881,7 @@ def evaluate_scenario(
 
 
 def evaluate_workload(
-        lambda_dir: str, 
+        lb_dir: str, 
         heuristics: list, 
         target: str,
         min_utilization,
@@ -849,7 +889,7 @@ def evaluate_workload(
         skip: dict
     ):
     # create directory to store figures
-    plot_dir = os.path.join(lambda_dir, "figures")
+    plot_dir = os.path.join(lb_dir, "figures")
     os.makedirs(plot_dir, exist_ok=True)
     # loop over all scenarios
     all_results = {}
@@ -857,10 +897,10 @@ def evaluate_workload(
     all_pcr = {}
     all_pcr_df = pd.DataFrame()
     all_n_violations = pd.DataFrame()
-    for scenario in os.listdir(lambda_dir):
+    for scenario in os.listdir(lb_dir):
         if scenario.startswith("Scenario"):
             print(f"  Processing results of {scenario}")
-            scenario_dir = os.path.join(lambda_dir, scenario)
+            scenario_dir = os.path.join(lb_dir, scenario)
             results, costs, pcr, n_violations = evaluate_scenario(
                 scenario_dir, 
                 heuristics, 
@@ -937,13 +977,18 @@ def evaluate_rule(
     all_pcr_df = pd.DataFrame()
     all_n_violations = {}
     all_n_violations_df = pd.DataFrame()
-    for lambda_max_str in os.listdir(results_dir):
-        if lambda_max_str.startswith("Lambda_"):
-            lambda_max = float(lambda_max_str.split("Lambda_")[1])
-            print(f"Processing results with max workload {lambda_max}")
-            lambda_dir = os.path.join(results_dir, lambda_max_str)
+    for lb_max_str in os.listdir(results_dir):
+        if lb_max_str.startswith("Lambda_"):
+            tokens = lb_max_str.split("-")
+            lambda_max = float(tokens[0].replace("Lambda_", ""))
+            bandwidth_min = float(tokens[1].replace("Bandwidth_", ""))
+            print(
+              f"Processing results with max workload {lambda_max} "
+              f"and minimum bandwidth {bandwidth_min}"
+            )
+            lb_dir = os.path.join(results_dir, lb_max_str)
             _, _, pcr, n_violations = evaluate_workload(
-                lambda_dir, 
+                lb_dir, 
                 heuristics, 
                 target, 
                 min_utilization, 
@@ -951,18 +996,20 @@ def evaluate_rule(
                 skip
             )
             # percentage cost reduction
-            all_pcr[lambda_max_str] = pcr
+            all_pcr[lb_max_str] = pcr
             df = pd.DataFrame(pcr["all_pcr_avg"])
             df["scenario"] = df.index
-            df["lambda_max"] = [lambda_max] * len(df)
+            df["lambda_max"] = lambda_max
+            df["bandwidth_min"] = bandwidth_min
             all_pcr_df = pd.concat(
                 [all_pcr_df, df], ignore_index=True
             )
             # violations
-            n_violations[lambda_max_str] = n_violations
+            n_violations[lb_max_str] = n_violations
             n_violations_df = pd.DataFrame(n_violations["all_n_violations_avg"])
             n_violations_df["scenario"] = n_violations_df.index
-            n_violations_df["lambda_max"] = [lambda_max] * len(n_violations_df)
+            n_violations_df["lambda_max"] = lambda_max
+            n_violations_df["bandwidth_min"] = bandwidth_min
             all_n_violations_df = pd.concat(
                 [all_n_violations_df, n_violations_df], ignore_index=True
             )
@@ -1022,7 +1069,9 @@ def evaluate_rule(
     )
     # plot the average number of violations in all scenarios
     alldf = pd.DataFrame()
-    for lambda_val in all_n_violations["all_n_violations"].groupby("lambda_max"):
+    for lambda_val in all_n_violations["all_n_violations"].groupby(
+          "lambda_max"
+        ):
         lambda_max = lambda_val[0]
         df = lambda_val[1].set_index("scenario").transpose()
         df = df.drop(["lambda_max"])
@@ -1030,7 +1079,8 @@ def evaluate_rule(
         alldf = pd.concat([alldf, df])
     alldf = alldf.sort_values("lambda_max")
     alldf["test"] = [
-        f"{alldf['lambda_max'].iloc[i]}\n{alldf.index[i]}" for i in range(len(alldf))
+        f"{alldf['lambda_max'].iloc[i]}\n{alldf.index[i]}" 
+            for i in range(len(alldf))
     ]
     alldf = alldf.drop("lambda_max", axis=1)
     ax = alldf.plot.bar(
