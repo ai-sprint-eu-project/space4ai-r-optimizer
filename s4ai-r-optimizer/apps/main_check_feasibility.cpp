@@ -39,6 +39,9 @@ main(int argc, char** argv)
 
   // initialize workload
   const auto lambda = basic_config.at("Lambda").get<sp::LoadType>();
+  double bandwidth = sp::NaN;
+  if (basic_config.contains("Bandwidth"))
+    bandwidth = basic_config.at("Bandwidth").get<double>();
 
   // initialize logger
   Logger::SetPriority(static_cast<LogPriority>(basic_config.at(
@@ -69,6 +72,7 @@ main(int argc, char** argv)
   system.read_configuration_file(
     system_config_file, 
     lambda, 
+    bandwidth,
     1.0
   );
 

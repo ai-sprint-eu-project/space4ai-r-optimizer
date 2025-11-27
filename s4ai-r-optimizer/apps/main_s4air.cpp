@@ -44,7 +44,9 @@ main(int argc, char** argv)
   const size_t max_num_sols = algo_config.at("max_num_sols").get<size_t>();
   const bool reproducibility = algo_config.at("reproducibility").get<bool>();
   const auto lambda = basic_config.at("Lambda").get<sp::LoadType>();
-  const auto bandwidth = basic_config.at("Bandwidth").get<double>();
+  double bandwidth = sp::NaN;
+  if (basic_config.contains("Bandwidth"))
+    bandwidth = basic_config.at("Bandwidth").get<double>();
 
   const double energy_cost_pct = 1.0; // WHAT THE HELL IS THIS?!?
 

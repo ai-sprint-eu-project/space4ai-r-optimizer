@@ -39,7 +39,9 @@ main(int argc, char** argv)
 
   // initialize workload and bandwidth
   const auto lambda = basic_config.at("Lambda").get<sp::LoadType>();
-  const auto bandwidth = basic_config.at("Bandwidth").get<double>();
+  double bandwidth = sp::NaN;
+  if (basic_config.contains("Bandwidth"))
+    bandwidth = basic_config.at("Bandwidth").get<double>();
 
   // initialize algorithm parameters
   const auto& algo_config = basic_config.at("Algorithm");
