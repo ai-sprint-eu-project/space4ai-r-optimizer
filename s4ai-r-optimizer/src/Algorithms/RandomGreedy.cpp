@@ -211,8 +211,8 @@ RandomGreedy::create_random_initial_solution(
   //Assign components
   //loop over components
   Logger::Debug("create_random_initial_solution: Assigning the components...");
-
-  for(size_t comp_idx = 0; comp_idx < components.size(); ++comp_idx)
+  bool unfeasible = false;
+  for(size_t comp_idx = 0; comp_idx < components.size() and !unfeasible; ++comp_idx)
   {
     Logger::Trace("create_random_initial_solution:  ***** Component: " + std::to_string(comp_idx) + " ******");
     //randomly select a deployment for that component
@@ -224,8 +224,11 @@ RandomGreedy::create_random_initial_solution(
     Logger::Trace("create_random_initial_solution: Selected deployment: " + std::to_string(random_dep_idx));
 
     //loop over all partitions in the deployment
-    for(size_t part_idx : random_dep.get_partition_indices())
+    const std::vector<std::size_t>& partition_indices = random_dep.get_partition_indices();
+    for(size_t part_idx_idx = 0; part_idx_idx < partition_indices.size() and !unfeasible; ++part_idx_idx)
     {
+      size_t part_idx = partition_indices[part_idx_idx];
+
       Logger::Trace("create_random_initial_solution: Partition: " + std::to_string(part_idx));
       //list of the resources in the intersection between candidate and compatible resources.
       //pair.first= resource type, pair.second= resource idx
@@ -244,72 +247,88 @@ RandomGreedy::create_random_initial_solution(
           if(candidate_resources[res_type_idx][res_idx] && compatibility_matrix[comp_idx][res_type_idx][part_idx][res_idx])
           {
             resources_instersection.emplace_back(res_type_idx, res_idx);
-            Logger::Trace("create_random_initial_solution: added to the intersection resource " + std::to_string(res_idx) + " of type " + std::to_string(res_type_idx));
+            Logger::Trace(
+              "create_random_initial_solution: added to the intersection resource " + 
+                std::to_string(res_idx) + " of type " + std::to_string(res_type_idx)
+            );
           }
         }
       }
 
-      // OBS: resources_instersection is NEVER EMPTY! Indeed, the computational layers
-      // are built such in a way that if a select one random resource from each layer
-      // resources_instersection is never empty
-      // THAT'S WHY I DO NOT HAVE TO CHECK if n_inter_res = 0 (~)
+      // check that resources_instersection is not empty
       const size_t n_inter_res = resources_instersection.size();
-      std::uniform_int_distribution<decltype(rng)::result_type> dist(0, n_inter_res - 1);
-      const size_t random_idx = dist(rng);
-      const auto& random_resource = resources_instersection[random_idx];
-      //update used resources and y_hat
-      used_resources[comp_idx].emplace_back(part_idx, random_resource.first, random_resource.second);
-      y_hat[comp_idx][random_resource.first][part_idx][random_resource.second] = 1;
-      Logger::Trace("create_random_initial_solution: Updated y, y_hat and used_resources");
-    }
-  }
-
-  std::vector<std::vector<bool>> already_updated_cluster_size(2);
-  already_updated_cluster_size[edge_type_idx].resize(all_resources.get_number_resources(edge_type_idx), false);
-  already_updated_cluster_size[vm_type_idx].resize(all_resources.get_number_resources(vm_type_idx), false);
-  //loop over edge and VM types
-  Logger::Debug("create_random_initial_solution: Selecting number of edge and VM resources...");
-
-  for(size_t comp_idx = 0; comp_idx < components.size(); ++comp_idx)
-  {
-    for(auto [part_idx, res_type_idx, res_idx] : used_resources[comp_idx])
-    {
-      if(res_type_idx == edge_type_idx || res_type_idx == vm_type_idx)
+      if (n_inter_res > 0)
       {
-        Logger::Trace("create_random_initial_solution: resource of type: " + std::to_string(res_type_idx) + " resource index: " + std::to_string(res_idx));
-
-        if(already_updated_cluster_size[res_type_idx][res_idx])
-        {
-          y_hat[comp_idx][res_type_idx][part_idx][res_idx] = n_used_resources[res_type_idx][res_idx];
-          Logger::Trace("create_random_initial_solution: Updated number of resources of comp " + std::to_string(comp_idx) + \
-            " part " + std::to_string(part_idx) + " to " + std::to_string(n_used_resources[res_type_idx][res_idx]));
-        }
-        else
-        {
-          already_updated_cluster_size[res_type_idx][res_idx] = true;
-          size_t number_avail;
-          if(res_type_idx == edge_type_idx && selected_edge.size() > 0) // if we are at RT, number avail coincide with the selected resources at edge at initial deployment
-            number_avail = selected_edge[res_idx];
-          else
-            number_avail = all_resources.get_number_avail(ResTypeFromIdx(res_type_idx), res_idx);
-          #warning DECIDE HOW TO SET random_number here ...
-          // std::uniform_int_distribution<decltype(rng)::result_type> dist(1, number_avail);
-          // const size_t random_number = dist(rng);
-          const size_t random_number = number_avail;
-          y_hat[comp_idx][res_type_idx][part_idx][res_idx] = random_number;
-          n_used_resources[res_type_idx][res_idx] = random_number;
-          Logger::Trace("create_random_initial_solution: Updated number of resources of comp " + std::to_string(comp_idx) + \
-            " part " + std::to_string(part_idx) + " to " + std::to_string(random_number));
-        }
+        std::uniform_int_distribution<decltype(rng)::result_type> dist(0, n_inter_res - 1);
+        const size_t random_idx = dist(rng);
+        const auto& random_resource = resources_instersection[random_idx];
+        //update used resources and y_hat
+        used_resources[comp_idx].emplace_back(part_idx, random_resource.first, random_resource.second);
+        y_hat[comp_idx][random_resource.first][part_idx][random_resource.second] = 1;
+        Logger::Trace("create_random_initial_solution: Updated y, y_hat and used_resources");
+      }
+      else
+      {
+        unfeasible = true;
+        Logger::Trace("create_random_initial_solution: **Intersection is empty");
       }
     }
   }
 
-  Logger::Debug("create_random_initial_solution: Initializing new random solution...");
-  solution.set_y_hat(std::move(y_hat));
-  solution.set_used_resources(std::move(used_resources));
-  solution.set_n_used_resources(std::move(n_used_resources));
-  Logger::Debug("create_random_initial_solution: Done!");
+  if (!unfeasible)
+  {
+    std::vector<std::vector<bool>> already_updated_cluster_size(2);
+    already_updated_cluster_size[edge_type_idx].resize(all_resources.get_number_resources(edge_type_idx), false);
+    already_updated_cluster_size[vm_type_idx].resize(all_resources.get_number_resources(vm_type_idx), false);
+    //loop over edge and VM types
+    Logger::Debug("create_random_initial_solution: Selecting number of edge and VM resources...");
+
+    for(size_t comp_idx = 0; comp_idx < components.size(); ++comp_idx)
+    {
+      for(auto [part_idx, res_type_idx, res_idx] : used_resources[comp_idx])
+      {
+        if(res_type_idx == edge_type_idx || res_type_idx == vm_type_idx)
+        {
+          Logger::Trace("create_random_initial_solution: resource of type: " + std::to_string(res_type_idx) + " resource index: " + std::to_string(res_idx));
+
+          if(already_updated_cluster_size[res_type_idx][res_idx])
+          {
+            y_hat[comp_idx][res_type_idx][part_idx][res_idx] = n_used_resources[res_type_idx][res_idx];
+            Logger::Trace("create_random_initial_solution: Updated number of resources of comp " + std::to_string(comp_idx) + \
+              " part " + std::to_string(part_idx) + " to " + std::to_string(n_used_resources[res_type_idx][res_idx]));
+          }
+          else
+          {
+            already_updated_cluster_size[res_type_idx][res_idx] = true;
+            size_t number_avail;
+            if(res_type_idx == edge_type_idx && selected_edge.size() > 0) // if we are at RT, number avail coincide with the selected resources at edge at initial deployment
+              number_avail = selected_edge[res_idx];
+            else
+              number_avail = all_resources.get_number_avail(ResTypeFromIdx(res_type_idx), res_idx);
+            #warning DECIDE HOW TO SET random_number here ...
+            // std::uniform_int_distribution<decltype(rng)::result_type> dist(1, number_avail);
+            // const size_t random_number = dist(rng);
+            const size_t random_number = number_avail;
+            y_hat[comp_idx][res_type_idx][part_idx][res_idx] = random_number;
+            n_used_resources[res_type_idx][res_idx] = random_number;
+            Logger::Trace("create_random_initial_solution: Updated number of resources of comp " + std::to_string(comp_idx) + \
+              " part " + std::to_string(part_idx) + " to " + std::to_string(random_number));
+          }
+        }
+      }
+    }
+
+    Logger::Debug("create_random_initial_solution: Initializing new random solution...");
+    solution.set_y_hat(std::move(y_hat));
+    solution.set_used_resources(std::move(used_resources));
+    solution.set_n_used_resources(std::move(n_used_resources));
+    Logger::Debug("create_random_initial_solution: Done!");
+  }
+  else
+  {
+    Logger::Debug("create_random_initial_solution: Aborted! Unfeasible selection");
+    solution.is_feasible(false);
+  }
   return solution;
 }
 

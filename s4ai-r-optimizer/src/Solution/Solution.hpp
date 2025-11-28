@@ -46,9 +46,9 @@ class Solution
   public:
 
     /** Solution default constructor */
-    explicit Solution(void*): feasibility(false), total_cost(-1) {}
+    explicit Solution(void*): feasibility(true), total_cost(-1) {}
 
-    /** Solution constructor that initializes feasibility to false
+    /** Solution constructor that initializes feasibility to true
     *   and total_cost to -1, and resize all the data scturctures according
     *   to data contained in system;
     */
@@ -114,11 +114,11 @@ class Solution
 
     /** feasibility getter */
     bool
-    get_feasibility() const { return feasibility; }
+    is_feasible() const { return feasibility; }
 
     /** feasibility setter -- to be used only in main_check_feasibility */
     void
-    set_feasibility(bool f) { feasibility = f; }
+    is_feasible(bool f) { feasibility = f; }
 
     /** total_cost getter */
     CostType
@@ -208,71 +208,71 @@ class Solution
     *   if the Solution is coherent with the SystemData.compatibility_matrix and
     *   if the number of used resources does not exceed the number of available
     *   resources.
+    * (set the feasibility parameter accordingly)
     *
     *   \param system Object containing all the data structures of the System
-    *   \return true if the Solution satisfies the constraints, false otherwise
     */
-    bool preliminary_constraints_check_assignments(const System& system) const; // It should not be needed to check it after RG. The solution is built satisfying preliminary constraints!
+    void preliminary_constraints_check_assignments(
+      const System& system
+    ); // It should not be needed to check it after RG. The solution is built satisfying preliminary constraints!
 
     /** Method to check if each Partition of the passed component is assigned to exactly one Resource,
     *   if the Solution is coherent with the SystemData.compatibility_matrix and
     *   if the number of used resources does not exceed the number of available
     *   resources.
+    * (set the feasibility parameter accordingly)
     *
     *   \param system Object containing all the data structures of the System
     *   \param comp_idx Component index to check
-    *   \return true if the Solution satisfies the constraints, false otherwise
     */
-    bool preliminary_constraints_check_assignments(size_t comp_idx,
-      const System& system) const;
+    void preliminary_constraints_check_assignments(size_t comp_idx,
+      const System& system);
 
     /** Method to check if the Solution satisfies the memory constraints.
+    * (set the feasibility parameter accordingly)
     *
     *   \param system Object containing all the data structures of the System
     *   \param local_info local information on the modified resources and partitions
-    *   \return true if the Solution satisfies the memory constraints, false otherwise
     */
-    bool
+    void
     memory_constraints_check(const System& system, const LocalInfo& local_info = LocalInfo());
 
     /** Method to check that, if a Component Partition object is executed
     *   on a ResourceType::VM or a ResourceType::Faas, all its successors
     *   are not executed on ResourceType::Edge resources
     *   (assignments cannot move back from cloud/faas to edge).
+    * (set the feasibility parameter accordingly)
     *
     *   \param system Object containing all the data structures of the System
-    *   \return True if the constraint is satisfied
     */
-    bool
+    void
     move_backward_check(const System& system);
 
     /** Method to verify if resources that don't allow colocation are overloaded
     *   (namely more than one Partition is running on the Resource).
+    * (set the feasibility parameter accordingly)
     *
     *   \param system Object containing all the data structures of the System
-    *   \return true if the Solution satisfies the constraint, false otherwise
     */
-    bool performance_assignment_check(
+    void performance_assignment_check(
       const System& system,
       const LocalInfo& local_info = LocalInfo());
 
     /** Method to check if LocalConstraint constraints are satisfied by the Solution.
+    * (set the feasibility parameter accordingly)
     *
     *   \param system Object containing all the data structures of the System
-    *   \return true if the Solution satisfies the LocalConstraint constraints,
-    *           false otherwise
     */
-    bool local_constraints_check(
+    void local_constraints_check(
       const System& system,
       const LocalInfo& local_info = LocalInfo());
 
     /** Method to check if GlobalConstraint constraints are satisfied by the Solution.
+    * (set the feasibility parameter accordingly)
     *
     *   \param system Object containing all the data structures of the System
-    *   \return true if the Solution satisfies the GlobalConstraint constraints,
-    *           false otherwise
     */
-    bool global_constraints_check(
+    void global_constraints_check(
       const System& system,
       const LocalInfo& local_info = LocalInfo());
 

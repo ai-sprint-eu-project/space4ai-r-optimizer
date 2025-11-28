@@ -51,7 +51,7 @@ main(int argc, char** argv)
     sp::LocalSearchManager ls_manager(elite_result, system, true, ls_n_iterations, ls_max_num_sols);
     ls_manager.run();
 
-    if(!ls_manager.get_ls_elite_result().get_solutions().at(0).get_feasibility())
+    if(!ls_manager.get_ls_elite_result().get_solutions().at(0).is_feasible())
       return EXIT_FAILURE;
 
   }

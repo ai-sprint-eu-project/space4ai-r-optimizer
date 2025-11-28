@@ -29,7 +29,7 @@ Copyright 2021 AI-SPRINT
 namespace Space4AI
 {
 Solution::Solution(const System& system):
-  feasibility(false),
+  feasibility(true),
   total_cost(std::numeric_limits<CostType>::infinity())
 {
   // Here I don't resize solution_data.* objects, since they are constructed by
@@ -418,7 +418,7 @@ Solution::to_json(const System& system) const
   jsolution["total_cost"] = total_cost;
   
   // feasibility
-  jsolution["feasible"] = feasibility;
+  jsolution["feasible"] = this->feasibility;
 
   return jsolution;
 }
@@ -514,29 +514,24 @@ Solution::set_instance_number(ResourceType res_type, size_t res_idx, size_t n)
   solution_data.set_instance_number(res_type, res_idx, n);
 }
 
-bool
+void
 Solution::preliminary_constraints_check_assignments(
   const System& system
-) const
+)
 {
   Logger::Debug("check_feasibility: Checking preliminary constraints assignments ...");
-  bool feasible = true;
-  const std::size_t tot_comp = system.get_system_data().get_components().size();
-
+  
   // loop over components
-  for(std::size_t comp_idx = 0; comp_idx < tot_comp && feasible; ++comp_idx)
-  {
-    feasible = feasible && preliminary_constraints_check_assignments(comp_idx, system);
-  }
+  const std::size_t tot_comp = system.get_system_data().get_components().size();
+  for(std::size_t comp_idx = 0; comp_idx < tot_comp && this->feasibility; ++comp_idx)
+    this->preliminary_constraints_check_assignments(comp_idx, system);
 
   Logger::Debug("check_feasibility: DONE preliminary constraints assignments ...");
-  return feasible;
 }
 
-bool
-Solution::preliminary_constraints_check_assignments(size_t comp_idx, const System& system) const
+void
+Solution::preliminary_constraints_check_assignments(size_t comp_idx, const System& system)
 {
-  bool feasible = true;
   const auto& compatibility_matrix = system.get_system_data().get_compatibility_matrix();
   const auto& all_resources = system.get_system_data().get_all_resources();
   const auto& components = system.get_system_data().get_components();
@@ -558,25 +553,22 @@ Solution::preliminary_constraints_check_assignments(size_t comp_idx, const Syste
       // (cheking all the components, in principle only VM should be checked)
       if(solution_data.y_hat[comp_idx][res_type_idx][part_idx][res_idx] > all_resources.get_number_avail(ResTypeFromIdx(res_type_idx), res_idx))
       {
-        feasible = false;
+        this->feasibility = false;
         break;
       }
     }
     else
     {
-      feasible = false;
+      this->feasibility = false;
       break;
     }
   }
-
-  return feasible;
 }
 
-bool
+void
 Solution::memory_constraints_check(const System& system, const LocalInfo& local_info)
 {
   Logger::Debug("check_feasibility: Checking memory constraints ... ");
-  bool feasible = true;
   const auto& components = system.get_system_data().get_components();
   const auto& all_resources = system.get_system_data().get_all_resources();
 
@@ -596,7 +588,7 @@ Solution::memory_constraints_check(const System& system, const LocalInfo& local_
   }
 
   // check memory occupations
-  for(size_t comp_idx = 0; comp_idx < components.size() && feasible; ++comp_idx)
+  for(size_t comp_idx = 0; comp_idx < components.size() && this->feasibility; ++comp_idx)
   {
     const auto& partitions = components[comp_idx].get_partitions();
 
@@ -610,7 +602,7 @@ Solution::memory_constraints_check(const System& system, const LocalInfo& local_
         {
           const auto message = "Resource of type and idx: " + std::to_string(r_type_idx) + " " + std::to_string(r_idx) + " does not satisfy memory";
           Logger::Debug(message);
-          feasible = false;
+          this->feasibility = false;
           break;
         }
       }
@@ -618,14 +610,12 @@ Solution::memory_constraints_check(const System& system, const LocalInfo& local_
   }
 
   Logger::Debug("check_feasibility: DONE memory constraints ... ");
-  return feasible;
 }
 
-bool
+void
 Solution::move_backward_check(const System& system)
 {
   Logger::Debug("check_feasibility: Checking move backward ... ");
-  bool feasible = true;
 
   const auto& components = system.get_system_data().get_components();
   const auto& dag = system.get_system_data().get_dag();
@@ -636,7 +626,7 @@ Solution::move_backward_check(const System& system)
 
   std::pair<size_t, size_t> first_cloud = std::make_pair(solution_data.used_resources.size(), 0);
 
-  for(size_t comp_idx = 0; comp_idx < components.size() && feasible; ++comp_idx)
+  for(size_t comp_idx = 0; comp_idx < components.size() && this->feasibility; ++comp_idx)
   {
     bool already_found_cloud_in_comp = false;
 
@@ -644,19 +634,19 @@ Solution::move_backward_check(const System& system)
     {
       already_found_cloud_in_comp = true;
 
-      for(size_t j=0; j<solution_data.used_resources[comp_idx].size() && feasible; ++j)
+      for(size_t j=0; j<solution_data.used_resources[comp_idx].size() && this->feasibility; ++j)
       {
         const auto [p_idx, res_type_idx, res_idx] = solution_data.used_resources[comp_idx][j];
 
         if((res_type_idx != vm_type_idx) && (res_type_idx != faas_type_idx))
         {
-          feasible = false;
+          this->feasibility = false;
         }
       }
     }
     else
     {
-      for(size_t j=0; j<solution_data.used_resources[comp_idx].size() && feasible; ++j)
+      for(size_t j=0; j<solution_data.used_resources[comp_idx].size() && this->feasibility; ++j)
       {
         const auto [p_idx, res_type_idx, res_idx] = solution_data.used_resources[comp_idx][j];
         if(res_type_idx == vm_type_idx || res_type_idx == faas_type_idx)
@@ -669,7 +659,7 @@ Solution::move_backward_check(const System& system)
         }
         else if(already_found_cloud_in_comp)
         {
-          feasible = false;
+          this->feasibility = false;
         }
       }
     }
@@ -686,7 +676,6 @@ Solution::move_backward_check(const System& system)
     }
   }
   solution_data.first_cloud = first_cloud;
-  return feasible;
 }
 
 // bool
@@ -724,7 +713,7 @@ Solution::move_backward_check(const System& system)
 //   return feasible;
 // }
 
-bool
+void
 Solution::performance_assignment_check(
   const System& system,
   const LocalInfo& local_info)
@@ -734,10 +723,12 @@ Solution::performance_assignment_check(
   const auto& components = system.get_system_data().get_components();
   const auto& performance = system.get_performance();
 
-  for(auto res_type_idx : res_type_to_check)
+  for(auto res_type_idx_it = res_type_to_check.cbegin(); res_type_idx_it != res_type_to_check.cend() && this->feasibility; ++res_type_idx_it)
   {
+    size_t res_type_idx = *res_type_idx_it;
+
     // loop over resources index by type
-    for(size_t res_idx = 0; res_idx < system.get_system_data().get_all_resources().get_number_resources(res_type_idx); ++res_idx)
+    for(size_t res_idx = 0; res_idx < system.get_system_data().get_all_resources().get_number_resources(res_type_idx) && this->feasibility; ++res_idx)
     {
       if(!local_info.active || local_info.modified_res[res_type_idx][res_idx])
       {
@@ -745,9 +736,9 @@ Solution::performance_assignment_check(
         size_t count_part{0};
 
         // loop over components
-        for(size_t comp_idx = 0; comp_idx < components.size(); ++comp_idx)
+        for(size_t comp_idx = 0; comp_idx < components.size() && this->feasibility; ++comp_idx)
         {
-          for(size_t part_idx = 0; part_idx < components[comp_idx].get_partitions().size(); ++part_idx)
+          for(size_t part_idx = 0; part_idx < components[comp_idx].get_partitions().size() && this->feasibility; ++part_idx)
           {
             if(solution_data.y_hat[comp_idx][res_type_idx][part_idx][res_idx] > 0)
             {
@@ -758,7 +749,7 @@ Solution::performance_assignment_check(
               {
                 if(count_part > 1)
                 {
-                  return false;
+                  this->feasibility = false;
                 }
               }
             }
@@ -773,17 +764,15 @@ Solution::performance_assignment_check(
   }
 
   Logger::Debug("check_feasibility: DONE performance assignments ... ");
-  return true;
 }
 
-bool
+void
 Solution::local_constraints_check(const System& system, const LocalInfo& local_info)
 {
   Logger::Debug("check_feasibility: Checking local constraints ...");
-  bool feasible = true;
   const auto& local_constraints = system.get_system_data().get_local_constraints();
 
-  for(size_t i = 0; i < local_constraints.size() && feasible; ++i)
+  for(size_t i = 0; i < local_constraints.size() && this->feasibility; ++i)
   {
     TimeType t = time_perfs.compute_local_perf(
       i, system, solution_data, local_info
@@ -791,41 +780,36 @@ Solution::local_constraints_check(const System& system, const LocalInfo& local_i
 
     if(std::isnan(t) || t > local_constraints[i].get_max_res_time())
     {
-      feasible = false;
+      this->feasibility = false;
     }
   }
 
   Logger::Debug(
-    "check_feasibility: DONE Checking local constraints ... " + 
-      std::to_string(feasible)
+    "check_feasibility: DONE Checking local constraints ... (" + 
+      std::to_string(this->feasibility) + ")"
   );
-
-  return feasible;
 }
 
-bool
+void
 Solution::global_constraints_check(const System& system, const LocalInfo& local_info)
 {
   Logger::Debug("check_feasibility: Checking global constraints ...");
-  bool feasible = true;
   const auto& global_constraints = system.get_system_data().get_global_constraints();
 
-  for(size_t i = 0; i < global_constraints.size() && feasible; ++i)
+  for(size_t i = 0; i < global_constraints.size() && this->feasibility; ++i)
   {
     time_perfs.compute_global_perf(i, system, solution_data, local_info);
 
     if(std::isnan(time_perfs.path_perfs[i]) || time_perfs.path_perfs[i] > global_constraints[i].get_max_res_time())
     {
-      feasible = false;
+      this->feasibility = false;
     }
   }
 
   Logger::Debug(
     "check_feasibility: DONE global constraints ... " + 
-      std::to_string(feasible)
+      std::to_string(this->feasibility)
   );
-
-  return feasible;
 }
 
 bool
@@ -834,35 +818,34 @@ Solution::check_feasibility(
 )
 {
   Logger::Debug("check_feasibility: Starting feasibility check of the solution ...");
-  bool feasible = false;
-  feasible = this->preliminary_constraints_check_assignments(system);
+  this->preliminary_constraints_check_assignments(system);
 
-  if(feasible)
+  if(this->feasibility)
   {
-    feasible = this->move_backward_check(system);
+    this->move_backward_check(system);
 
-    if(feasible)
+    if(this->feasibility)
     {
-      feasible = this->performance_assignment_check(system, local_info);
+      this->performance_assignment_check(system, local_info);
 
-      if(feasible)
+      if(this->feasibility)
       {
-        feasible = this->memory_constraints_check(system, local_info);
+        this->memory_constraints_check(system, local_info);
 
-        if(feasible)
+        if(this->feasibility)
         {
-          feasible = this->local_constraints_check(system, local_info);
+          this->local_constraints_check(system, local_info);
 
-          if(feasible)
+          if(this->feasibility)
           {
-            feasible = this->global_constraints_check(system, local_info);
+            this->global_constraints_check(system, local_info);
           }
         }
       }
     }
   }
 
-  if(!feasible)
+  if(!this->feasibility)
   {
     Logger::Debug("check_feasibility: Solution not feasible, failed last check!");
   }
@@ -871,8 +854,7 @@ Solution::check_feasibility(
     Logger::Debug("check_feasibility: Done feasibility check: Solution is feasible!");
   }
 
-  this->feasibility = feasible;
-  return feasible;
+  return this->feasibility;
 }
 
 bool
@@ -881,15 +863,15 @@ Solution::check_QoS_constraints(const System& system)
   Logger::Info(
     "check_feasibility: Starting QoS constraints feasibility check..."
   );
-  bool feasible = this->local_constraints_check(system);
-  if(feasible)
-    feasible = this->global_constraints_check(system);
+  this->local_constraints_check(system);
+  if(this->feasibility)
+    this->global_constraints_check(system);
   Logger::Info(
     "check_feasibility: Done QoS constraints feasibility check. (" + 
-      std::to_string(feasible) + 
+      std::to_string(this->feasibility) + 
         ")"
   );
-  return feasible;
+  return this->feasibility;
 }
 
 CostType

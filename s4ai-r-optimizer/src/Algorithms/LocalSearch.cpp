@@ -166,12 +166,17 @@ LocalSearch::migration_tweaking(
     local_info.old_local_parts_perfs_ptr = &(best_sol.time_perfs.local_parts_perfs);
     local_info.old_local_parts_delays_ptr = &(best_sol.time_perfs.local_parts_delays);
     // CONSTRAINTS
-    feasible =
-      curr_sol.move_backward_check(*system) &&
-      curr_sol.performance_assignment_check(*system, local_info) &&
-      curr_sol.memory_constraints_check(*system, local_info) &&
-      curr_sol.local_constraints_check(*system, local_info) &&
+    if (curr_sol.is_feasible())
+      curr_sol.move_backward_check(*system);
+    if (curr_sol.is_feasible())
+      curr_sol.performance_assignment_check(*system, local_info);
+    if (curr_sol.is_feasible())
+      curr_sol.memory_constraints_check(*system, local_info);
+    if (curr_sol.is_feasible())
+      curr_sol.local_constraints_check(*system, local_info);
+    if (curr_sol.is_feasible())
       curr_sol.global_constraints_check(*system, local_info);
+    feasible = curr_sol.is_feasible();
   }
 
   if(feasible)
@@ -263,13 +268,16 @@ LocalSearch::migrate_faas_to_faas()
 
   // check constraints
   // CONSTRAINTS
-  bool feasible =
-    curr_sol.performance_assignment_check(*system, local_info) &&
-    curr_sol.memory_constraints_check(*system, local_info) &&
-    curr_sol.local_constraints_check(*system, local_info) &&
+  if(curr_sol.is_feasible())
+    curr_sol.performance_assignment_check(*system, local_info);
+  if(curr_sol.is_feasible())
+    curr_sol.memory_constraints_check(*system, local_info);
+  if(curr_sol.is_feasible())
+    curr_sol.local_constraints_check(*system, local_info);
+  if(curr_sol.is_feasible())
     curr_sol.global_constraints_check(*system, local_info);
 
-  if(feasible && (curr_sol.objective_function(*system) < best_sol.get_cost()))
+  if(curr_sol.is_feasible() && (curr_sol.objective_function(*system) < best_sol.get_cost()))
   {
     best_sol = curr_sol;
     ++faas_to_faas_count;
@@ -374,14 +382,18 @@ LocalSearch::change_deployment()
 
   if(diff_cost < -1e-12)
   {
-    const bool feasible =
-      curr_sol.move_backward_check(*system) &&
-      curr_sol.performance_assignment_check(*system, local_info) &&
-      curr_sol.memory_constraints_check(*system, local_info) &&
-      curr_sol.local_constraints_check(*system, local_info) &&
+    if(curr_sol.is_feasible())
+      curr_sol.move_backward_check(*system);
+    if(curr_sol.is_feasible())
+      curr_sol.performance_assignment_check(*system, local_info);
+    if(curr_sol.is_feasible())
+      curr_sol.memory_constraints_check(*system, local_info);
+    if(curr_sol.is_feasible())
+      curr_sol.local_constraints_check(*system, local_info);
+    if(curr_sol.is_feasible())
       curr_sol.global_constraints_check(*system, local_info);
 
-    if(feasible)
+    if(curr_sol.is_feasible())
     {
       best_sol = curr_sol;
       ++change_deployment_count;
@@ -485,14 +497,18 @@ LocalSearch::drop_resource()
 
   if(diff_cost < -1e-12)
   {
-    const bool feasible =
-      curr_sol.move_backward_check(*system) &&
-      curr_sol.performance_assignment_check(*system, local_info) &&
-      curr_sol.memory_constraints_check(*system, local_info) &&
-      curr_sol.local_constraints_check(*system, local_info) &&
+    if(curr_sol.is_feasible())
+      curr_sol.move_backward_check(*system);
+    if(curr_sol.is_feasible())
+      curr_sol.performance_assignment_check(*system, local_info);
+    if(curr_sol.is_feasible())
+      curr_sol.memory_constraints_check(*system, local_info);
+    if(curr_sol.is_feasible())
+      curr_sol.local_constraints_check(*system, local_info);
+    if(curr_sol.is_feasible())
       curr_sol.global_constraints_check(*system, local_info);
 
-    if(feasible)
+    if(curr_sol.is_feasible())
     {
       best_sol = curr_sol;
       ++drop_resource_count;
@@ -688,11 +704,15 @@ LocalSearch::change_resource()
     }
   }
   // check constraints
-  feasible = feasible &&
-    curr_sol.performance_assignment_check(*system, local_info) &&
-    curr_sol.memory_constraints_check(*system, local_info) &&
-    curr_sol.local_constraints_check(*system, local_info) &&
+  if (curr_sol.is_feasible())
+    curr_sol.performance_assignment_check(*system, local_info);
+  if(curr_sol.is_feasible())
+    curr_sol.memory_constraints_check(*system, local_info);
+  if(curr_sol.is_feasible())
+    curr_sol.local_constraints_check(*system, local_info);
+  if(curr_sol.is_feasible())
     curr_sol.global_constraints_check(*system, local_info);
+  feasible = feasible && curr_sol.is_feasible();
 
   if(feasible && (curr_sol.objective_function(*system, local_info) < best_sol.get_cost()))
   {
@@ -812,10 +832,13 @@ LocalSearch::reduce_cluster_size(size_t res_type_idx, size_t res_idx)
       }
     }
 
-    feasible =
-      curr_sol.memory_constraints_check(*system, local_info) &&
-      curr_sol.local_constraints_check(*system, local_info) &&
+    if(curr_sol.is_feasible())
+      curr_sol.memory_constraints_check(*system, local_info);
+    if(curr_sol.is_feasible())
+      curr_sol.local_constraints_check(*system, local_info);
+    if(curr_sol.is_feasible())
       curr_sol.global_constraints_check(*system, local_info);
+    feasible = curr_sol.is_feasible();
 
     if(feasible)
     {
