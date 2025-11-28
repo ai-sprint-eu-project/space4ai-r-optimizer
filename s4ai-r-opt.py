@@ -99,6 +99,11 @@ def parse_arguments() -> argparse.Namespace:
       default=False,
       action="store_true"
     )
+    parser.add_argument(
+      "--loadapistructure",
+      default=False,
+      action="store_true"
+    )
     args, _ = parser.parse_known_args()
     return args
 
@@ -409,13 +414,13 @@ def main(
     application_dir = os.path.join(MOUNT_POINT, args.application_dir)
     output_dir = os.path.join(application_dir, "space4air")
     fname = f"Lambda_{args.load}"
-    if args.bandwidth is not None:
+    if not args.loadapistructure:
       fname = f"Solution-{fname}-Bandwidth_{args.bandwidth}"
     new_deployment_file = os.path.join(output_dir, f"{fname}.json")
     os.makedirs(output_dir, exist_ok = True)
     # optimize
     system_file = None
-    if args.bandwidth is not None:
+    if not args.loadapistructure:
         system_file = os.path.join(application_dir, "SystemFile.json")
     else:
         system_file = os.path.join(
@@ -439,12 +444,13 @@ if __name__ == "__main__":
     log_file = None
     log_stream = None
     if args.log_on_file:
-        log_file = os.path.join(
+        logidr = os.path.join(
           MOUNT_POINT, 
           args.application_dir, 
-          "space4ai-r" if args.aisprint else "", 
-          "s4ai-r-LOG.log"
+          "space4ai-r" if args.aisprint else ""
         )
+        os.makedirs(logidr, exist_ok = True)
+        log_file = os.path.join(logidr, "s4ai-r-LOG.log")
         log_stream = open(log_file, "a")
         logger.out_stream = log_stream
     # run and print output
