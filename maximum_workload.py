@@ -471,6 +471,7 @@ def maximum_workload_json():
             output_dir = os.path.join(
                 MOUNT_POINT, "output", application_dir, "maxworkloadapi"
             )
+            os.makedirs(output_dir, exist_ok = True)
             system_file = os.path.join(input_dir, "SystemFile.json")
             current_solution_file = os.path.join(
                 s4air_output_dir, f"Lambda_{min_lambda}.json"
