@@ -4,14 +4,15 @@ if [ "$1" = "-h" ] || [ "$1" == "--help" ]; then
   echo "Required parameters:"
   echo "  1: application directory"
   echo "  2: workload"
-  echo "  3: number of scenarios S (scenarios are numbered from 0 to S, incl.)"
-  echo "  4: number of instances I per scenario (numbered from 0 to I, incl.)"
-  echo "  5: utilization heuristic update rule (fixed/percentage)"
-  echo "  6: minimum utilization threshold"
-  echo "  7: maximum utilization threshold"
-  echo "  8: decrease percentage"
-  echo "  9: increase percentage"
-  echo "  10: verbosity level"
+  echo "  3: bandwidth"
+  echo "  4: number of scenarios S (scenarios are numbered from 0 to S, incl.)"
+  echo "  5: number of instances I per scenario (numbered from 0 to I, incl.)"
+  echo "  6: utilization heuristic update rule (fixed/percentage)"
+  echo "  7: minimum utilization threshold"
+  echo "  8: maximum utilization threshold"
+  echo "  9: decrease percentage"
+  echo "  10: increase percentage"
+  echo "  11: verbosity level"
 else
   EXP_DIR=$1
   LAMBDA=$2
@@ -46,11 +47,11 @@ else
                                         --verbosity_level ${VERBOSE} \
                                         > ${LOG_FILE} 2>&1
         else
-          echo "        Input folder does not exist"
+          echo "        Input folder " ${APP_DIR} " does not exist"
         fi
       done
     else
-      echo "    Input folder does not exist"
+      echo "    Input folder " ${BASE_DIR}/Scenario${s} " does not exist"
     fi
   done
 fi
