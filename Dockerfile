@@ -55,7 +55,7 @@ RUN mkdir s4ai-r-optimizer/BUILD && \
 ############################################################################
 #			build image for development                        #
 ############################################################################
-FROM base as image-dev
+FROM base AS image-dev
 
 # copy the last change from your brach to invalidate the cache if there 
 # was a new change
@@ -67,12 +67,12 @@ RUN git clone ${PARSER_URL} ./${PARSER_DIR}
 RUN pip install --no-cache-dir -r ${PARSER_DIR}/requirements.txt
 
 # entrypoint
-CMD bash
+ENTRYPOINT [ "/bin/bash" ]
 
 ############################################################################
 #			build image for production                         #
 ############################################################################
-FROM base as image-prod
+FROM base AS image-prod
 
 # define parser tag
 ARG PARSER_TAG=23.12.11
@@ -85,4 +85,4 @@ RUN git clone	--depth 1 \
 RUN pip install --no-cache-dir -r ${PARSER_DIR}/requirements.txt
 
 # entrypoint
-CMD bash
+ENTRYPOINT [ "/bin/bash" ]
