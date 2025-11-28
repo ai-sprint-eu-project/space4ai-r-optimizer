@@ -318,11 +318,19 @@ def plot_expected_utilization(
     _, ax = plt.subplots()
     for key, data in results.groupby(results.index):
         if key != 0:
-            n_dt = design_time_solution[1].loc[key]["number"]
+            n_dt = 0
+            if key in design_time_solution[1].index:
+                n_dt = design_time_solution[1].loc[key]["number"]
             if isinstance(n_dt, pd.Series):
                 n_dt = n_dt.iloc[0]
+            u = []
             n = [n_dt] + list(data.iloc[:-1]["number"])
-            u = data["utilization"] * data["number"] / n
+            if n_dt > 0:
+                u = data["utilization"] * data["number"] / n
+            else:
+                u = [None] + list(
+                  data.iloc[1:]["utilization"] * data.iloc[1:]["number"] / n[1:]
+                )
             df = pd.DataFrame({
                 "time": list(workload_profile.iloc[1:]["time"]),
                 "solution_idx": list(workload_profile.iloc[1:]["solution_idx"])
@@ -478,7 +486,9 @@ def plot_n_instances(
     _, ax = plt.subplots()
     for key, data in results.groupby(results.index):
         if key != 0:
-            n_dt = design_time_solution[1].loc[key]["number"]
+            n_dt = 0
+            if key in design_time_solution[1].index:
+                n_dt = design_time_solution[1].loc[key]["number"]
             if isinstance(n_dt, pd.Series):
                 n_dt = n_dt.iloc[0]
             df = pd.DataFrame({
@@ -519,19 +529,18 @@ def plot_n_instances(
     plt.close()
 
 
-def evaluate_heuristic(
-        dir: str, 
+def evaluate_rule(
+        solution_dir: str, 
         workload_profile: pd.DataFrame,
         bandwidth_profile: pd.DataFrame,
         heuristic: str,
         design_time_solution: pd.DataFrame,
         plot_dir: str,
-        min_utilization: float,
-        max_utilization: float,
-        skip: dict
+        skip: dict,
+        min_utilization: float = None,
+        max_utilization: float = None
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list, list]:
     # get solution data
-    solution_dir = os.path.join(dir, heuristic)
     resources, response_times, assignments, cost, feasibility = get_solutions(
       solution_dir, workload_profile, bandwidth_profile
     )
@@ -578,23 +587,86 @@ def evaluate_heuristic(
     return resources, response_times["local"], assignments, cost, feasibility
 
 
+
+def evaluate_heuristic(
+        dir: str, 
+        workload_profile: pd.DataFrame,
+        bandwidth_profile: pd.DataFrame,
+        heuristic: str,
+        design_time_solution: pd.DataFrame,
+        plot_dir: str,
+        skip: dict
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list, list]:
+    resources, resp_times, assignments = [pd.DataFrame()] * 3
+    cost = {}
+    feasibility = {}
+    # check if multiple rules were applied
+    solution_dir = os.path.join(dir, heuristic)
+    if os.path.exists(os.path.join(solution_dir, "Config.json")):
+        resources, resp_times, assignments, c, feas = evaluate_rule(
+            solution_dir, 
+            workload_profile, 
+            bandwidth_profile, 
+            heuristic, 
+            design_time_solution, 
+            plot_dir,
+            skip
+        )
+        cost[None] = c
+        feasibility[None] = feas
+    else:
+        # loop over all subfolders
+        for name in os.listdir(solution_dir):
+            if name.startswith("fixed_") or name.startswith("percentage_"):
+                tokens = name.split("_")
+                rule = tokens[0]
+                min_utilization = float(tokens[1])
+                max_utilization = float(tokens[2])
+                if len(tokens) > 3:
+                    decr_percentage = float(tokens[3])
+                    incr_percentage = float(tokens[4])
+                print(f"      Processing folder {name}")
+                results_dir = os.path.join(solution_dir, name)
+                rule_plot_dir = os.path.join(results_dir, "figures")
+                os.makedirs(rule_plot_dir, exist_ok=True)
+                # evaluate the current results
+                res, resp, asg, c, feas = evaluate_rule(
+                    results_dir, 
+                    workload_profile, 
+                    bandwidth_profile, 
+                    heuristic, 
+                    design_time_solution, 
+                    rule_plot_dir,
+                    skip,
+                    min_utilization,
+                    max_utilization
+                )
+                res["rule"] = name
+                resp["rule"] = name
+                asg["rule"] = name
+                cost[name] = c
+                feasibility[name] = feas
+    return resources, resp_times, assignments, cost, feasibility
+
+
 def plot_costs(costs: dict, workload_profile: pd.DataFrame, plot_dir: str):
     _, ax = plt.subplots()
-    for heuristic, cost in costs.items():
-        df = pd.DataFrame({
-            "time": workload_profile.iloc[1:]["time"],
-            "cost": cost
-        })
-        df.plot(
-            x = "time",
-            y = "cost",
-            label = heuristic,
-            ax = ax,
-            marker = ".",
-            linewidth = 2,
-            grid = True,
-            fontsize = 14
-        )
+    for heuristic, cost_dict in costs.items():
+        for rule, cost in cost_dict.items():
+            df = pd.DataFrame({
+                "time": workload_profile.iloc[1:]["time"],
+                "cost": cost
+            })
+            df.plot(
+                x = "time",
+                y = "cost",
+                label = heuristic if rule is None else f"{heuristic} ({rule})",
+                ax = ax,
+                marker = ".",
+                linewidth = 2,
+                grid = True,
+                fontsize = 14
+            )
     ax.set_xlabel("time [min]", fontsize = 14)
     ax.set_ylabel("cost [$]", fontsize = 14)
     ax.legend(fontsize = 14)
@@ -608,26 +680,32 @@ def plot_costs(costs: dict, workload_profile: pd.DataFrame, plot_dir: str):
 
 
 def compute_percentage_cost_reduction(costs: dict, target: str) -> dict:
+    reshaped_costs = {}
     pcr = {}
-    for heuristic, cost in costs.items():
-        if heuristic != target:
-            pcr[heuristic] = []
-            for t,o in zip(costs[target], cost):
-                if t is not None and o is not None:
-                    pcr[heuristic].append((o-t)/o * 100)
-                else:
-                    pcr[heuristic].append(None)
-    return pcr
+    for heuristic, cost_dict in costs.items():
+        for rule, cost in cost_dict.items():
+            if heuristic != target:
+                pcr[f"{heuristic}-{rule}"] = []
+                reshaped_costs[f"{heuristic}-{rule}"] = []
+                for t,o in zip(costs[target][None], cost):
+                    reshaped_costs[f"{heuristic}-{rule}"].append(o)
+                    if t is not None and o is not None:
+                        pcr[f"{heuristic}-{rule}"].append((o-t)/o * 100)
+                    else:
+                        pcr[f"{heuristic}-{rule}"].append(None)
+            else:
+                reshaped_costs[heuristic] = cost
+    return reshaped_costs, pcr
 
 
 def plot_percentage_cost_reduction(
-        pcr: dict, 
+        pcr_dict: dict, 
         workload_profile: pd.DataFrame,
         target: str,
         plot_dir: str
     ):
     _, ax = plt.subplots()
-    for heuristic, pcr in pcr.items():
+    for heuristic, pcr in pcr_dict.items():
         df = pd.DataFrame({
             "time": workload_profile.iloc[1:]["time"],
             "pcr": pcr
@@ -656,7 +734,7 @@ def plot_percentage_cost_reduction(
 
 def barplot(data: pd.DataFrame, ylabel: str, title: str, plot_dir: str):
     ax = data.plot.bar(
-        fontsize = 14
+        fontsize = 14, grid = True
     )
     ax.set_xlabel(None)
     ax.set_ylabel(ylabel, fontsize=14)
@@ -677,7 +755,8 @@ def plot_average_costs_over_time(costs: pd.DataFrame, plot_dir: str):
         x = "time",
         marker = ".",
         linewidth = 2,
-        fontsize = 14
+        fontsize = 14,
+        grid = True
     )
     ax.set_xlabel("time [min]", fontsize=14)
     ax.set_ylabel("average costs [$]", fontsize=14)
@@ -695,8 +774,6 @@ def evaluate_instance(
         instance_dir: str, 
         heuristics: list, 
         target: str,
-        min_utilization: float,
-        max_utilization: float,
         skip: dict
     ) -> Tuple[dict, dict, dict]:
     # create directory to store figures
@@ -750,8 +827,6 @@ def evaluate_instance(
                     heuristic, 
                     design_time_solution, 
                     plot_dir,
-                    min_utilization,
-                    max_utilization,
                     skip
                 )
                 costs[heuristic] = results[heuristic][3]
@@ -759,7 +834,7 @@ def evaluate_instance(
             # plot costs
             plot_costs(costs, workload_profile, plot_dir)
         # compute and plot percentage cost reduction
-        pcr = compute_percentage_cost_reduction(costs, target)
+        costs, pcr = compute_percentage_cost_reduction(costs, target)
         if not skip["instance"]:
             plot_percentage_cost_reduction(
                 pcr, workload_profile, target, plot_dir
@@ -792,8 +867,6 @@ def evaluate_scenario(
         scenario_dir: str, 
         heuristics: list, 
         target: str,
-        min_utilization: float,
-        max_utilization: float,
         skip: dict
     ) -> Tuple[dict, dict, dict, pd.DataFrame]:
     # create directory to store figures
@@ -811,8 +884,6 @@ def evaluate_scenario(
                 instance_dir, 
                 heuristics, 
                 target,
-                min_utilization, 
-                max_utilization,
                 skip
             )
             if rrr is not None:
@@ -851,18 +922,35 @@ def evaluate_scenario(
         )
     # compute average cost across instances and number of violations per instance
     print("      compute average cost and #violations across instances")
-    d = {heuristic: {} for heuristic in heuristics}
+    d = {}
+    ddf = {}
     n_violations = {}
     for heuristic in heuristics:
-        f = {}
+        if heuristic not in d:
+            d[heuristic] = {}
+        allf = {}
         for instance, instance_data in all_results.items():
+            heuristic_rules = []
             if heuristic != "figaro":
-                f[instance] = instance_data[heuristic][-1]
-            d[heuristic][instance]=all_costs["all_costs"][instance][heuristic]
-        f = pd.DataFrame(f)
-        n_violations[heuristic] = ((len(f) - f.sum()) / len(f)) * 100
-        d[heuristic] = pd.DataFrame(d[heuristic]).mean(axis=1)
-    all_costs["all_costs_avg_over_time"] = pd.DataFrame(d)
+                for rule, rule_data in instance_data[heuristic][-1].items():
+                    heuristic_rules.append(rule)
+                    if rule not in allf:
+                        allf[rule] = {}
+                    allf[rule][instance] = rule_data
+            for rule in heuristic_rules:
+                if rule not in d[heuristic]:
+                    d[heuristic][rule] = {}
+                hname = heuristic if rule is None else f"{heuristic}-{rule}"
+                d[heuristic][rule][instance] = all_costs[
+                    "all_costs"
+                ][instance][hname]
+        for rule, f in allf.items():
+            f = pd.DataFrame(f)
+            hname = heuristic if rule is None else f"{heuristic}-{rule}"
+            n_violations[hname] = ((len(f) - f.sum()) / len(f)) * 100
+            # -- cost
+            ddf[hname] = pd.DataFrame(d[heuristic][rule]).mean(axis=1)
+    all_costs["all_costs_avg_over_time"] = pd.DataFrame(ddf)
     n_violations = pd.DataFrame(n_violations)
     if not skip["scenario"]:
         # plot average cost across instances
@@ -884,8 +972,6 @@ def evaluate_workload(
         lb_dir: str, 
         heuristics: list, 
         target: str,
-        min_utilization,
-        max_utilization,
         skip: dict
     ):
     # create directory to store figures
@@ -905,8 +991,6 @@ def evaluate_workload(
                 scenario_dir, 
                 heuristics, 
                 target, 
-                min_utilization, 
-                max_utilization,
                 skip
             )
             all_results[scenario] = results
@@ -929,11 +1013,14 @@ def evaluate_workload(
             print("  ", "-"*77)
     print("  **** Evaluating cumulative results")
     # plot the average percentage cost reduction in all scenarios
-    heuristics_no_target = [h for h in heuristics if h != target]
+    heuristics_no_target = [
+      c for c in all_pcr_df.columns if 
+        c.split("-")[0] in heuristics and c.split("-")[0] != target
+    ]
     all_pcr = {
         "all_pcr": all_pcr,
         "all_pcr_avg": all_pcr_df.groupby("scenario")[
-            [f"{h}_avg" for h in heuristics_no_target]
+            [h for h in heuristics_no_target]
         ].mean()
     }
     if not skip["workload"]:
@@ -944,7 +1031,10 @@ def evaluate_workload(
             plot_dir
         )
     # plot the average number of violations in all scenarios
-    no_figaro_heur = [h for h in heuristics if h != "figaro"]
+    no_figaro_heur = [
+      h for h in all_n_violations.columns if 
+        h.split("-")[0] in heuristics and h.split("-")[0] != "figaro"
+    ]
     all_n_violations = {
         "all_n_violations": all_n_violations,
         "all_n_violations_avg": all_n_violations.groupby(
@@ -961,12 +1051,10 @@ def evaluate_workload(
     return all_results, all_costs, all_pcr, all_n_violations
 
 
-def evaluate_rule(
+def main(
         results_dir: str, 
         heuristics: list, 
         target: str,
-        min_utilization: float,
-        max_utilization: float,
         skip: dict
     ):
     # create directory to store figures
@@ -991,8 +1079,6 @@ def evaluate_rule(
                 lb_dir, 
                 heuristics, 
                 target, 
-                min_utilization, 
-                max_utilization,
                 skip
             )
             # percentage cost reduction
@@ -1016,11 +1102,14 @@ def evaluate_rule(
             print("#"*80)
     print("**** Evaluating cumulative results")
     # plot the average percentage cost reduction for all workloads
-    heuristics_no_target = [h for h in heuristics if h != target]
+    heuristics_no_target = [
+      c for c in all_pcr_df.columns if 
+        c.split("-")[0] in heuristics and c.split("-")[0] != target
+    ]
     all_pcr = {
         "all_pcr": all_pcr,
         "all_pcr_avg": all_pcr_df.groupby("lambda_max")[
-            [f"{h}_avg" for h in heuristics_no_target]
+            [h for h in heuristics_no_target]
         ].mean()
     }
     barplot(
@@ -1029,32 +1118,35 @@ def evaluate_rule(
         "average_pcr.png",
         plot_dir
     )
-    # plot the average percentage cost reduction in all scenarios
-    alldf = pd.DataFrame()
-    for lambda_str in all_pcr["all_pcr"]:
-        df = all_pcr["all_pcr"][lambda_str]["all_pcr_avg"].transpose()
-        lambda_max = df.loc["lambda_max"].unique()[0]
-        df = df.drop(["scenario", "lambda_max"])
-        df["lambda_max"] = [lambda_max] * len(df)
-        alldf = pd.concat([alldf, df])
-    alldf = alldf.sort_values("lambda_max")
-    ax = alldf.plot.bar(
-        x = "lambda_max",
-        rot = 0,
-        fontsize = 14
-    )
-    ax.set_xlabel(None)
-    ax.set_ylabel("average percentage cost reduction", fontsize = 14)
-    ax.legend(fontsize = 14)
-    plt.savefig(
-        os.path.join(plot_dir, "average_pcr_all_scenarios.png"),
-        dpi = 300,
-        format = "png",
-        bbox_inches = "tight"
-    )
-    plt.close()
+    # # plot the average percentage cost reduction in all scenarios
+    # alldf = pd.DataFrame()
+    # for lambda_str in all_pcr["all_pcr"]:
+    #     df = all_pcr["all_pcr"][lambda_str]["all_pcr_avg"].transpose()
+    #     lambda_max = df.loc["lambda_max"].unique()[0]
+    #     df = df.drop(["scenario", "lambda_max"])
+    #     df["lambda_max"] = [lambda_max] * len(df)
+    #     alldf = pd.concat([alldf, df])
+    # alldf = alldf.sort_values("lambda_max")
+    # ax = alldf.plot.bar(
+    #     x = "lambda_max",
+    #     rot = 0,
+    #     fontsize = 14
+    # )
+    # ax.set_xlabel(None)
+    # ax.set_ylabel("average percentage cost reduction", fontsize = 14)
+    # ax.legend(fontsize = 14)
+    # plt.savefig(
+    #     os.path.join(plot_dir, "average_pcr_all_scenarios.png"),
+    #     dpi = 300,
+    #     format = "png",
+    #     bbox_inches = "tight"
+    # )
+    # plt.close()
     # plot the average number of violations in all scenarios
-    no_figaro_heur = [h for h in heuristics if h != "figaro"]
+    no_figaro_heur = [
+      h for h in all_n_violations_df.columns if 
+        h.split("-")[0] in heuristics and h.split("-")[0] != "figaro"
+    ]
     all_n_violations = {
         "all_n_violations": all_n_violations_df,
         "all_n_violations_avg": all_n_violations_df.groupby(
@@ -1067,78 +1159,53 @@ def evaluate_rule(
         "avg_n_violations.png",
         plot_dir
     )
-    # plot the average number of violations in all scenarios
-    alldf = pd.DataFrame()
-    for lambda_val in all_n_violations["all_n_violations"].groupby(
-          "lambda_max"
-        ):
-        lambda_max = lambda_val[0]
-        df = lambda_val[1].set_index("scenario").transpose()
-        df = df.drop(["lambda_max"])
-        df["lambda_max"] = [lambda_max] * len(df)
-        alldf = pd.concat([alldf, df])
-    alldf = alldf.sort_values("lambda_max")
-    alldf["test"] = [
-        f"{alldf['lambda_max'].iloc[i]}\n{alldf.index[i]}" 
-            for i in range(len(alldf))
-    ]
-    alldf = alldf.drop("lambda_max", axis=1)
-    ax = alldf.plot.bar(
-        x = "test",
-        rot = 0,
-        fontsize = 14
-    )
-    ax.set_xlabel(None)
-    ax.set_ylabel("average percentage # violations", fontsize = 14)
-    ax.legend(fontsize = 14)
-    plt.savefig(
-        os.path.join(plot_dir, "avg_n_violations_all_scenarios.png"),
-        dpi = 300,
-        format = "png",
-        bbox_inches = "tight"
-    )
-    plt.close()
-
-
-def main(
-        all_results_dir: str, 
-        heuristics: list, 
-        target: str,
-        skip: dict
-    ):
-    # loop over all subfolders
-    for name in os.listdir(all_results_dir):
-        if name.startswith("fixed_") or name.startswith("percentage_"):
-            tokens = name.split("_")
-            rule = tokens[0]
-            min_utilization = float(tokens[1])
-            max_utilization = float(tokens[2])
-            if len(tokens) > 3:
-                decr_percentage = float(tokens[3])
-                incr_percentage = float(tokens[4])
-            print(f"Processing folder {name}")
-            results_dir = os.path.join(all_results_dir, name)
-            # evaluate the current results
-            evaluate_rule(
-                results_dir, 
-                heuristics, 
-                target, 
-                min_utilization, 
-                max_utilization,
-                skip
-            )
+    # # plot the average number of violations in all scenarios
+    # alldf = pd.DataFrame()
+    # for lambda_val in all_n_violations["all_n_violations"].groupby(
+    #       "lambda_max"
+    #     ):
+    #     lambda_max = lambda_val[0]
+    #     df = lambda_val[1].set_index("scenario").transpose()
+    #     df = df.drop(["lambda_max"])
+    #     df["lambda_max"] = [lambda_max] * len(df)
+    #     alldf = pd.concat([alldf, df])
+    # alldf = alldf.sort_values("lambda_max")
+    # alldf["test"] = [
+    #     f"{alldf['lambda_max'].iloc[i]}\n{alldf.index[i]}" 
+    #         for i in range(len(alldf))
+    # ]
+    # alldf = alldf.drop("lambda_max", axis=1)
+    # ax = alldf.plot.bar(
+    #     x = "test",
+    #     rot = 0,
+    #     fontsize = 14
+    # )
+    # ax.set_xlabel(None)
+    # ax.set_ylabel("average percentage # violations", fontsize = 14)
+    # ax.legend(fontsize = 14)
+    # plt.savefig(
+    #     os.path.join(plot_dir, "avg_n_violations_all_scenarios.png"),
+    #     dpi = 300,
+    #     format = "png",
+    #     bbox_inches = "tight"
+    # )
+    # plt.close()
 
 
 if __name__ == "__main__":
-    # parse arguments
-    args = parse_arguments()
-    results_dir = args.results_dir
-    heuristics = args.heuristics
-    target = args.target
-    skip = {
-        "instance": args.skip_instance, 
-        "scenario": args.skip_scenario,
-        "workload": args.skip_workload
-    }
+    # # parse arguments
+    # args = parse_arguments()
+    # results_dir = args.results_dir
+    # heuristics = args.heuristics
+    # target = args.target
+    # skip = {
+    #     "instance": args.skip_instance, 
+    #     "scenario": args.skip_scenario,
+    #     "workload": args.skip_workload
+    # }
+    results_dir = "/Users/federicafilippini/Documents/GitHub/ai-sprint-eu-project/space4ai-r-optimizer/example_applications/S4AIRvsUHEUR"
+    heuristics = ["s4air", "uheur"]
+    target = "s4air"
+    skip = {"instance": False, "scenario": False, "workload": False}
     # run
     main(results_dir, heuristics, target, skip)
