@@ -289,7 +289,7 @@ def generate_components(
             # randomly choose the number of partitions per deployment
             all_n_partitions = [
                 extract_random_int(
-                    1, max_n_partitions
+                    2, max_n_partitions
                 ) for _ in range(n_deployments)
             ]
             # loop over deployments
@@ -301,7 +301,7 @@ def generate_components(
                     is_last_partition = (h == n_partitions)
                     partitions[f"h{next_partition_idx}"] = generate_partition(
                         component_name=component_name,
-                        partition_idx=h,
+                        partition_idx=next_partition_idx,
                         DAG_dict=DAG_dict,
                         min_data_size=min_data_size,
                         max_data_size=max_data_size,
