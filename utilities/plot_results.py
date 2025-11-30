@@ -414,12 +414,13 @@ def plot_response_times(
                 fontsize = 14,
                 grid = True
             )
-            ax.axhline(
-                y = threshold,
-                linestyle = "dashed",
-                color = plt.gca().lines[-1].get_color(),
-                linewidth = "2"
-            )
+            if threshold is not None:
+                ax.axhline(
+                    y = threshold,
+                    linestyle = "dashed",
+                    color = plt.gca().lines[-1].get_color(),
+                    linewidth = "2"
+                )
     ax.set_xlabel("time [min]", fontsize = 14)
     ax.set_ylabel("response time [s]", fontsize = 14)
     ax.legend(fontsize = 14)
