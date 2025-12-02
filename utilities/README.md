@@ -80,6 +80,12 @@ At the end of the execution, the `application_dir` has the following structure:
 └── config.json
 ```
 
+> [!NOTE]
+> To ensure compatibility with the provided plotting script, it is recommended 
+> to follow the directory structure reported 
+> [below](#structure-of-the-results-folder). To achieve this goal, consider 
+> the `Scenario<S>` as your `application_dir` here.
+
 ### Generate multiple testing scenarios
 
 The [`generate_scenarios`](generate_scenarios.py) script can be used to 
@@ -88,9 +94,12 @@ scenarios according to the parameters specified in a suitable configuration
 file. It can be called from the command-line with the following prototype:
 
 ```
-usage: generate_scenarios.py [-h] [--application_dir APPLICATION_DIR] 
-                             [--lambda_max LAMBDA_MAX [LAMBDA_MAX ...]] 
-                             [--seed SEED] [-v VERBOSE]
+usage: generate_scenarios.py  [-h] 
+                            [--application_dir APPLICATION_DIR] 
+                            [--lambda_max LAMBDA_MAX [LAMBDA_MAX ...]] 
+                            [--bandwidth_min BANDWIDTH_MIN [BANDWIDTH_MIN ...]] 
+                            [--seed SEED] 
+                            [-v VERBOSE]
 
 Testing Scenarios Generation
 
@@ -100,6 +109,8 @@ options:
                         Path to the application directory
   --lambda_max LAMBDA_MAX [LAMBDA_MAX ...]
                         Maximum workload values
+  --bandwidth_min BANDWIDTH_MIN [BANDWIDTH_MIN ...]
+                        Minimum bandwidth values
   --seed SEED           Seed for random number generation
   -v VERBOSE, --verbose VERBOSE
                         Verbosity level
@@ -113,14 +124,22 @@ generate the testing scenarios. The structure of this configuration file
 is detailed in [the following](#multiple-testing-scenarios).
 * `lambda_max`, which corresponds to the (list of) maximum workload value(s) 
 to be considered in the tests.
+* `bandwidth_min`, which corresponds to the (list of) minimum bandwidth 
+value(s) to be considered in the tests.
+
+> [!WARNING]
+> The `lambda_max` and `bandwidth_min` parameters are compatible if: (i) the 
+> two lists have the same size, OR (ii) one of the two lists include a single 
+> element (which is repeated in all experiments).
 
 At the end of the execution, the `application_dir` includes several 
-subdirectories, one for each value of `LAMBDA_MAX` passed as parameter, 
-and (assuming a single `LAMBDA_MAX` value) it has the following structure:
+subdirectories, one for each pair of `LAMBDA_MAX` and `BANDWIDTH_MIN` passed 
+as parameters, and (assuming a single pair of `LAMBDA_MAX` and 
+`BANDWIDTH_MIN`) it has the following structure:
 
 ```
 .
-├── Lambda_<LAMBDA_MAX>
+├── Lambda_<LAMBDA_MAX>-Bandwidth_<BANDWIDTH_MIN>
 │   ├── Scenario0
 │   │   ├── Instance0
 │   │   │   └── SystemFile.json
@@ -155,6 +174,81 @@ and (assuming a single `LAMBDA_MAX` value) it has the following structure:
 │   │   └── config.json
 └── base_config.json
 ```
+
+### Generate workload and bandwidth traces
+
+To generate an input workload trace with the required minimum and maximum 
+values, run the [`generate_workload.py`](generate_workload.py) script as 
+follows:
+
+```
+usage: generate_workload.py [-h] 
+                            [--application_dir APPLICATION_DIR] 
+                            [--min_load MIN_LOAD] 
+                            [--max_load MAX_LOAD] 
+                            [--max_steps MAX_STEPS] 
+                            [--seed SEED] 
+                            [-v VERBOSE]
+
+Workload Trace Generation
+
+options:
+  -h, --help            show this help message and exit
+  --application_dir APPLICATION_DIR
+                        Path to the application directory
+  --min_load MIN_LOAD   Minimum workload value
+  --max_load MAX_LOAD   Maximum workload value
+  --max_steps MAX_STEPS
+                        Workload trace length
+  --seed SEED           Seed for random number generation
+  -v VERBOSE, --verbose VERBOSE
+                        Verbosity level
+```
+
+In particular, consider as `application_dir` the base application directory 
+containing all the `Scenario<S>` subfolders, i.e., the base directory with 
+name `Lambda_<LAMBDA_MAX>-Bandwidth_<BANDWIDTH_MIN>`. Moreover, when 
+providing the `min_load` and `max_load` input parameters, ensure that the 
+latter matches the `LAMBDA_MAX` value in the directory name. According to 
+the provided input, a base workload trace is generated with `max_steps` values 
+in `[min_load,max_load]`.
+
+Similarly, to generate a bandwidth trace, run the 
+[generate_bandwidth.py](generate_bandwidth.py) script as:
+
+```
+usage: generate_bandwidth.py  [-h] 
+                              [--application_dir APPLICATION_DIR] 
+                              [--min_bandwidth MIN_BANDWIDTH] 
+                              [--max_bandwidth MAX_BANDWIDTH] 
+                              [--max_steps MAX_STEPS] 
+                              [--seed SEED] 
+                              [-v VERBOSE]
+
+Bandwidth Trace Generation
+
+options:
+  -h, --help            show this help message and exit
+  --application_dir APPLICATION_DIR
+                        Path to the application directory
+  --min_bandwidth MIN_BANDWIDTH
+                        Minimum bandwidth value
+  --max_bandwidth MAX_BANDWIDTH
+                        Maximum bandwidth value
+  --max_steps MAX_STEPS
+                        Bandwidth trace length
+  --seed SEED           Seed for random number generation
+  -v VERBOSE, --verbose VERBOSE
+                        Verbosity level
+```
+
+The parameters follow the same logic as above.
+
+> [!NOTE]
+> The bandwidth trace is generated based on real 5G values stored in the 
+> [`5G_trace.csv`](base_data/5G_trace.csv) file, which is available to 
+> the [`s4airutilities` container](#start-the-container) as 
+> `/home/SPACE4AI-R-utilities/base_data/5G_trace.csv`.
 
 ### Plot comparative results
 
@@ -349,25 +443,30 @@ position n, no combinatorial exploration is considered.
 
 ```
 .
-├── <heuristic comparison identifier>
-│   ├── Lambda_<LAMBDA_MAX>
+├── <base application directory>
+│   ├── Lambda_<LAMBDA_MAX>-Bandwidth_<BANDWIDTH_MIN>
 │   │   ├── LambdaValues.json
+│   │   ├── BandwidthValues.json
 │   │   ├── Scenario0
 │   │   │   ├── Instance0
 │   │   │   │   ├── LambdaValues.json
-│   │   │   │   ├── Lambda_15.0.json
+│   │   │   │   ├── BandwidthValues.json
+│   │   │   │   ├── Solution-lambda_<LAMBDA_MAX>-bandwidth_<BANDWIDTH_MIN>.json
 │   │   │   │   ├── SystemFile.json
 │   │   │   │   ├── s4air
 │   │   │   │   ├── [...]
 │   │   │   │   └── <other heuristics>
+│   │   │   │       └── <heuristic comparison identifier>
 │   │   │   ├── [...]
 │   │   │   ├── Instance<I>
 │   │   │   │   ├── LambdaValues.json
-│   │   │   │   ├── Lambda_15.0.json
+│   │   │   │   ├── BandwidthValues.json
+│   │   │   │   ├── Solution-lambda_<LAMBDA_MAX>-bandwidth_<BANDWIDTH_MIN>.json
 │   │   │   │   ├── SystemFile.json
 │   │   │   │   ├── s4air
 │   │   │   │   ├── [...]
 │   │   │   │   └── <other heuristics>
+│   │   │   │       └── <heuristic comparison identifier>
 │   │   │   └── logs
 │   │   │   │   ├── compare_heuristics_0.log
 │   │   │   │   ├── compare_heuristics_1.log
@@ -379,19 +478,23 @@ position n, no combinatorial exploration is considered.
 │   │   ├── Scenario<S>
 │   │   │   ├── Instance0
 │   │   │   │   ├── LambdaValues.json
-│   │   │   │   ├── Lambda_15.0.json
+│   │   │   │   ├── BandwidthValues.json
+│   │   │   │   ├── Solution-lambda_<LAMBDA_MAX>-bandwidth_<BANDWIDTH_MIN>.json
 │   │   │   │   ├── SystemFile.json
 │   │   │   │   ├── s4air
 │   │   │   │   ├── [...]
 │   │   │   │   └── <other heuristics>
+│   │   │   │       └── <heuristic comparison identifier>
 │   │   │   ├── [...]
 │   │   │   ├── Instance<I>
 │   │   │   │   ├── LambdaValues.json
-│   │   │   │   ├── Lambda_15.0.json
+│   │   │   │   ├── BandwidthValues.json
+│   │   │   │   ├── Solution-lambda_<LAMBDA_MAX>-bandwidth_<BANDWIDTH_MIN>.json
 │   │   │   │   ├── SystemFile.json
 │   │   │   │   ├── s4air
 │   │   │   │   ├── [...]
 │   │   │   │   └── <other heuristics>
+│   │   │   │       └── <heuristic comparison identifier>
 │   │   │   └── logs
 │   │   │   │   ├── compare_heuristics_0.log
 │   │   │   │   ├── compare_heuristics_1.log

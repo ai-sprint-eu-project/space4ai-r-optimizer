@@ -45,6 +45,12 @@ def parse_arguments() -> argparse.Namespace:
       nargs="+"
     )
     parser.add_argument(
+      "--bandwidth_min", 
+      help="Minimum bandwidth values", 
+      type=float,
+      nargs="+"
+    )
+    parser.add_argument(
       "--seed", 
       help="Seed for random number generation", 
       type=int,
@@ -99,6 +105,7 @@ def merge_configuration_dictionaries(
       base_config: dict, 
       parameters: dict, 
       workload: float,
+      bandwidth: float,
       scenario_dir: str
     ):
     # merge base configuration dictionary with current parameters
@@ -109,8 +116,14 @@ def merge_configuration_dictionaries(
         else:
             for inner_key, inner_value in value.items():
                 config[key][inner_key] = inner_value
-    # add workload
+    # add workload and bandwidth
     config["lambda"] = workload
+    if isinstance(bandwidth, list):
+        for idx, b in enumerate(bandwidth):
+            config["network_technology"][idx][-1] = b
+    else:
+        for idx in range(len(config["network_technology"])):
+            config["network_technology"][idx][-1] = bandwidth
     # write to file
     with open(os.path.join(scenario_dir, "config.json"), "w") as ostream:
         json.dump(config, ostream, indent=2)
@@ -119,9 +132,23 @@ def merge_configuration_dictionaries(
 def main(
       application_dir: str, 
       lambda_max: list,
+      bandwidth_min: list,
       seed: int, 
       logger: space4ai_logger.Logger
     ):
+    # check that `lambda_max` and `bandwidth_min` parameters are compatible
+    if len(lambda_max) != len(bandwidth_min):
+        if len(lambda_max) > 1 and len(bandwidth_min) > 1:
+            logger.err(
+                "`lambda_max` and `bandwidth_min` should have the "
+                "same length or include only a single element"
+            )
+            sys.exit(1)
+        else:
+            if len(lambda_max) == 1:
+                lambda_max = [lambda_max[0]] * len(bandwidth_min)
+            else:
+                bandwidth_min = [bandwidth_min[0]] * len(lambda_max)
     # read base configuration file
     config_file = os.path.join(application_dir, "base_config.json")
     config = read_configuration_file(config_file)
@@ -133,10 +160,15 @@ def main(
         logger.err(f"Length of parameter {culprit} is invalid")
         sys.exit(1)
     # loop over all workload values
-    for workload in lambda_max:
-        workload_dir = os.path.join(application_dir, f"Lambda_{workload}")
+    for workload, bandwidth in zip(lambda_max, bandwidth_min):
+        workload_dir = os.path.join(
+            application_dir, f"Lambda_{workload}-Bandwidth_{bandwidth}"
+        )
         os.makedirs(workload_dir, exist_ok=True)
-        logger.log(f"Generating scenarios for lambda_max = {workload}")
+        logger.log(
+            f"Generating scenarios for lambda_max = {workload} and "
+            f"bandwidth_min = {bandwidth}"
+        )
         # loop over all scenarios
         for n in range(n_scenarios):
             scenario_dir = os.path.join(workload_dir, f"Scenario{n}")
@@ -148,7 +180,7 @@ def main(
             parameters = extract_parameters(parameters_grid, n)
             # write configuration file
             merge_configuration_dictionaries(
-              base_config, parameters, workload, scenario_dir
+              base_config, parameters, workload, bandwidth, scenario_dir
             )
             # generate scenario
             generate_scenario(scenario_dir, seed, logger)
@@ -160,8 +192,9 @@ if __name__ == "__main__":
     args = parse_arguments()
     application_dir = args.application_dir
     lambda_max = args.lambda_max
+    bandwidth_min = args.bandwidth_min
     seed = args.seed
     verbose = args.verbose
     # run
     logger = space4ai_logger.Logger(name="GenerateScenarios", verbose=verbose)
-    main(application_dir, lambda_max, seed, logger)
+    main(application_dir, lambda_max, bandwidth_min, seed, logger)

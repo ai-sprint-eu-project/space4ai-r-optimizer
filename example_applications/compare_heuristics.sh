@@ -27,7 +27,7 @@ else
   VERBOSE=${11}
   for s in $(seq 0 ${NSCENARIOS}); do
     echo "Scenario ${s}"
-    BASE_DIR=/mnt/${EXP_DIR}/Lambda_${LAMBDA}-Bandwidth_${BANDWIDTH}
+    BASE_DIR=${MOUNT_POINT}/${EXP_DIR}/Lambda_${LAMBDA}-Bandwidth_${BANDWIDTH}
     if [ -d ${BASE_DIR}/Scenario${s} ]; then
       LOG_DIR=${BASE_DIR}/Scenario${s}/logs
       mkdir -p ${LOG_DIR}

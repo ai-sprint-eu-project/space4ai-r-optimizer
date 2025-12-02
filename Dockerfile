@@ -45,13 +45,6 @@ COPY s4ai-r-opt.py .
 COPY maximum_workload.py .
 COPY estimate_CPUs.py .
 
-# load optimizer code and make
-COPY s4ai-r-optimizer ./s4ai-r-optimizer
-RUN mkdir s4ai-r-optimizer/BUILD && \
-    cd s4ai-r-optimizer/BUILD && \
-    cmake .. && \
-    make -j4
-
 ############################################################################
 #			build image for development                        #
 ############################################################################
@@ -65,6 +58,13 @@ ADD "${GITLAB}/api/v4/projects/${PROJECT_ID}/repository/branches/main" \
 # install parser (latest version)
 RUN git clone ${PARSER_URL} ./${PARSER_DIR}
 RUN pip install --no-cache-dir -r ${PARSER_DIR}/requirements.txt
+
+# load optimizer code and make
+COPY s4ai-r-optimizer ./s4ai-r-optimizer
+RUN mkdir s4ai-r-optimizer/BUILD && \
+    cd s4ai-r-optimizer/BUILD && \
+    cmake .. && \
+    make -j4
 
 # entrypoint
 ENTRYPOINT [ "/bin/bash" ]
@@ -83,6 +83,13 @@ RUN git clone	--depth 1 \
 		${PARSER_URL} \
 		./${PARSER_DIR}
 RUN pip install --no-cache-dir -r ${PARSER_DIR}/requirements.txt
+
+# load optimizer code and make
+COPY s4ai-r-optimizer ./s4ai-r-optimizer
+RUN mkdir s4ai-r-optimizer/BUILD && \
+    cd s4ai-r-optimizer/BUILD && \
+    cmake .. && \
+    make -j4
 
 # entrypoint
 ENTRYPOINT [ "/bin/bash" ]

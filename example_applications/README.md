@@ -1,3 +1,6 @@
+
+## AI-SPRINT
+
 Download here the examples from 
 [AI-SPRINT Examples](https://gitlab.polimi.it/ai-sprint/ai-sprint-examples).
 
@@ -6,3 +9,138 @@ running SPACE4AI-D and therefore contains the optimal
 `production_deployment.yaml` required as input by the optimizer.
 
 ## Compare heuristics
+
+To compare the performance of the `SPACE4AI-R` optimizer and the 
+`UtilizationHeuristic` on one or multiple scenarios generated as explained in 
+the [utilities](../utilities/README.md#generate-a-unique-testing-scenario) 
+from the [`s4airopt` container](../README.md#start-the-container),
+1. copy the `compare_heuristics.*` scripts in `/home/SPACE4AI-R`
+2. run the [`compare_heuristics.sh`](compare_heuristics.sh) Bash script 
+considering the following parameters:
+
+```
+> ./compare_heuristics.sh -h
+
+Required parameters:
+  1: application directory
+  2: workload
+  3: bandwidth
+  4: number of scenarios S (scenarios are numbered from 0 to S, incl.)
+  5: number of instances I per scenario (numbered from 0 to I, incl.)
+  6: utilization heuristic update rule (fixed/percentage)
+  7: minimum utilization threshold
+  8: maximum utilization threshold
+  9: decrease percentage
+  10: increase percentage
+  11: verbosity level
+```
+
+* The first parameter is the name of the base application directory where 
+the 
+[`Lambda_<LAMBDA_MAX>-Bandwidth_<BANDWIDTH_MIN>`](../utilities/README.md#structure-of-the-results-folder) 
+are generated. This must be available to the container at `${MOUNT_POINT}`.
+* The second and third parameters are the `LAMBDA_MAX` and `BANDWIDTH_MIN` 
+used to build the directory name.
+* The fourth and fifth parameters are the number of scenarios and instances 
+to be considered. These are used to loop over subdirectories of 
+`Lambda_<LAMBDA_MAX>-Bandwidth_<BANDWIDTH_MIN>` from `Scenario0` to 
+`Scenario<S>` (included) and from `Scenario<s>/Instance0` to 
+`Scenario<s>/Instance<I>` (included).
+* The sixth, seventh and eighth parameters set the behavior of the 
+`UtilizationHeuristic`: it increases (resp. decreases) the number of active 
+instances on a computational layer if the utilization level is higher (lower) 
+than the corresponding maximum (minimum) threshold. If the update rule is 
+`fixed`, the number of active instances is increased (decreased) by 1; if it 
+is `percentage`, the number is:
+  * decreased by the percentage provided as ninth parameter, or
+  * increased by the percentage provided as tenth parameter.
+
+Example:
+
+```
+./compare_heuristics.sh \
+  S4AIR \
+  2.4 \
+  10.0 \
+  0 \
+  1 \
+  percentage \
+  0.1 \
+  0.2 \
+  0.2 \
+  0.2 \
+  INFO
+```
+
+## Maximum workload API
+
+To invoke the `SPACE4AI-R` maximum workload API, run the 
+[call_max_workload_api.py](call_max_workload_api.py) script as follows:
+
+```
+usage: call_max_workload_api.py [-h] 
+                                [--check_home] 
+                                [--aisprint] 
+                                [--application_dir APPLICATION_DIR] 
+                                [--min_load MIN_LOAD] 
+                                [--max_load MAX_LOAD] 
+                                [--epsilon EPSILON] 
+                                [--verbosity_level VERBOSITY_LEVEL]
+
+SPACE4AI-R max-load api
+
+options:
+  -h, --help            show this help message and exit
+  --check_home
+  --aisprint
+  --application_dir APPLICATION_DIR
+                        Path to the application directory
+  --min_load MIN_LOAD   Lower bound of the binary search
+  --max_load MAX_LOAD   Upper bound of the binary search
+  --epsilon EPSILON     Binary search tolerance
+  --verbosity_level VERBOSITY_LEVEL
+                        Verbosity level
+```
+
+The following parameters can (or must) be provided:
+* `--check_home` is used to check whether the 
+[API container](../README.md#starting-the-web-api-to-get-the-maximum-admissible-workload) 
+is up and running. If this is provided, all the other parameters are ignored.
+* `--aisprint` must be provided when calling the maximum workload API in the 
+AI-SPRINT version. 
+* `application_dir` is the the directory where input files are provided 
+(and output files will be generated). If the `--aisprint` parameter 
+is provided, its structure is the one mentioned [above](#ai-sprint). 
+Otherwise, the structure is described 
+[below](#io-directory-structure-outside-ai-sprint).
+* `min_load`, `max_load` and `epsilon` are input parameters to the binary 
+search (always mandatory).
+
+> [!CAUTION]
+> The `min_load` value must correspond to the value for which an initial 
+> solution exists in the input directory.
+
+### I/O directory structure (outside AI-SPRINT)
+
+When using the maximum workload API outside AI-SPRINT, consider the following 
+structure for input/output directories. 
+
+In particular, the 
+[API container](../README.md#starting-the-web-api-to-get-the-maximum-admissible-workload) 
+looks for the `SystemFile.json` input file in 
+`${MOUNT_POINT}/input/<application_dir>`, where the value of the `MOUNT_POINT` 
+environment variable is set at container startup (it is `/mnt` by default) 
+and `application_dir` is the parameter provided to `call_max_workload_api.py`. 
+Moreover, it looks for the initial solution file, called 
+`Lambda_{min_load}.json`, in 
+`${MOUNT_POINT}/output/<application_dir>/space4air`, where `min_load` is the 
+value provided as parameter to `call_max_workload_api.py`. 
+
+> [!NOTE]
+> The initial solution file is generated in the suitable directory if 
+> generated by calling the `s4air-opt.py` script providing the 
+> [`--loadapistructure` parameter](../README.md#execution-instructions) and 
+> considering `output/<application_dir>` as value for `application_dir`.
+
+The output files generated by the API container are saved in 
+`${MOUNT_POINT}/output/<application_dir>/maxworkloadapi`.

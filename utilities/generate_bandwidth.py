@@ -221,7 +221,7 @@ def main(
   ):
   # initialize generator
   BWG = BandwidthGenerator(
-    os.path.join(application_dir, "5G_trace.csv"),
+    "/home/SPACE4AI-R-utilities/base_data/5G_trace.csv",
     num_shifts = 5,
     shift_range = (-1000, 1000), 
     random_noise = 0.1, 
