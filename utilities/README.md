@@ -253,6 +253,13 @@ The parameters follow the same logic as above.
 > the [`s4airutilities` container](#start-the-container) as 
 > `/home/SPACE4AI-R-utilities/base_data/5G_trace.csv`.
 
+> [!CAUTION]
+> To match a use-case where SPACE4AI-D runs first considering the worst-case 
+> scenario (i.e., the maximum expected workload and minimum expected 
+> bandwidth), the first value in the generated traces corresponds to this 
+> worst-case value. Ignore it if you want to consider only the dynamic trace 
+> for SPACE4AI-R.
+
 ### Plot comparative results
 
 The [`plot_results`](plot_results.py) script can be used to plot and compare 
