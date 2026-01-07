@@ -222,6 +222,7 @@ usage: generate_bandwidth.py  [-h]
                               [--min_bandwidth MIN_BANDWIDTH] 
                               [--max_bandwidth MAX_BANDWIDTH] 
                               [--max_steps MAX_STEPS] 
+                              [--aggregate_every AGGREGATE_EVERY] 
                               [--seed SEED] 
                               [-v VERBOSE]
 
@@ -237,6 +238,8 @@ options:
                         Maximum bandwidth value
   --max_steps MAX_STEPS
                         Bandwidth trace length
+  --aggregate_every AGGREGATE_EVERY
+                        Interval length for average
   --seed SEED           Seed for random number generation
   -v VERBOSE, --verbose VERBOSE
                         Verbosity level

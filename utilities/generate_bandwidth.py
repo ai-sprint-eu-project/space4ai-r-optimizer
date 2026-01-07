@@ -17,6 +17,7 @@ Copyright 2025 AI-SPRINT
 from external import space4ai_logger
 from utilities_functions import rescale
 
+from matplotlib import colors as mcolors
 import matplotlib.pyplot as plt
 from typing import Tuple
 import pandas as pd
@@ -52,7 +53,13 @@ def parse_arguments() -> argparse.Namespace:
       "--max_steps", 
       help="Bandwidth trace length", 
       type=int,
-      default=100
+      default=360
+    )
+    parser.add_argument(
+      "--aggregate_every", 
+      help="Interval length for average", 
+      type=int,
+      default=6
     )
     parser.add_argument(
       "--seed", 
@@ -209,6 +216,59 @@ class BandwidthGenerator:
     else:
       plt.title(f"{name}_{start}_{start+steps}")
       plt.show()
+  
+  def plot_trace_with_average(
+      self,
+      bw_avg: np.array, 
+      bw: np.array, 
+      start: int = 20000, 
+      steps: int = 2000, 
+      aggregate_every: int = 100, 
+      current_step: int = 20000, 
+      name: str = "5G_trace", 
+      dpi: int = 100, 
+      plot_folder: str = None
+    ):
+    plt.rcParams.update({'font.size': 14})
+    _, ax = plt.subplots(figsize = (12,4))
+    ax.plot(
+      bw[start:start+steps], 
+      ".-", 
+      color = mcolors.TABLEAU_COLORS["tab:blue"]
+    )
+    step = int(steps//aggregate_every)
+    for t in range(step):
+      ax.hlines(
+        y = bw_avg[start+t], 
+        xmin = t*aggregate_every,
+        xmax = (t+1)*aggregate_every,
+        linestyle = "solid", 
+        linewidth = 2,
+        color = mcolors.TABLEAU_COLORS["tab:red"]
+      )
+    # highlight current time
+    ax.axvline(
+      x = current_step,
+      color = "k",
+      linestyle = "dashed"
+    )
+    # naming the x axis
+    ax.set_xlabel("Control time period $t$")
+    # naming the y axis
+    ax.set_ylabel('Throughput(Mbps)')
+    plt.tight_layout()
+    plt.grid(True)
+    if plot_folder is not None:
+      plt.savefig(
+        os.path.join(plot_folder, f"{name}_{start}_{start+steps}.png"),
+        dpi = dpi,
+        format = "png",
+        bbox_inches = "tight"
+      )
+      plt.close()
+    else:
+      plt.title(f"{name}_{start}_{start+steps}")
+      plt.show()
 
 
 def main(
@@ -216,6 +276,7 @@ def main(
     min_bandwidth: float, 
     max_bandwidth: float, 
     max_steps: int, 
+    aggregate_every: int, 
     seed: int, 
     logger: space4ai_logger.Logger
   ):
@@ -230,18 +291,27 @@ def main(
   rng = np.random.default_rng(seed = seed)
   # generate trace
   bw_trace = BWG.generate_trace(max_steps, min_bandwidth, max_bandwidth, rng)
+  # aggregate every XX steps
+  bw_trace_avg = np.mean(bw_trace.reshape(-1, aggregate_every), axis = 1)
   # save
   os.makedirs(application_dir, exist_ok = True)
   with open(
     os.path.join(application_dir, "BandwidthValues.json"), "w"
   ) as istream:
+    lv = {"BandwidthVec": [min_bandwidth] + bw_trace_avg.tolist()}
+    istream.write(json.dumps(lv, indent = 2))
+  with open(
+    os.path.join(application_dir, "BandwidthValuesExtended.json"), "w"
+  ) as istream:
     lv = {"BandwidthVec": [min_bandwidth] + bw_trace.tolist()}
     istream.write(json.dumps(lv, indent = 2))
   # plot trace
-  BWG.plot_traces_intervals(
+  BWG.plot_trace_with_average(
+    bw_trace_avg,
     bw_trace,
     start = 0,
     steps = max_steps,
+    aggregate_every = aggregate_every,
     current_step = 0,
     name = "BandwidthValues",
     dpi = 300,
@@ -257,10 +327,19 @@ if __name__ == "__main__":
   min_bandwidth = args.min_bandwidth
   max_bandwidth = args.max_bandwidth
   max_steps = args.max_steps
+  aggregate_every = args.aggregate_every
   seed = args.seed
   verbose = args.verbose
   # set seed for random number generation
   np.random.seed(seed)
   # run
   logger = space4ai_logger.Logger(name="GenerateBandwidth", verbose=verbose)
-  main(application_dir, min_bandwidth, max_bandwidth, max_steps, seed, logger)
+  main(
+    application_dir, 
+    min_bandwidth, 
+    max_bandwidth, 
+    max_steps, 
+    aggregate_every,
+    seed, 
+    logger
+  )
