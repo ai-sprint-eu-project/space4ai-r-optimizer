@@ -22,7 +22,9 @@ def parse_arguments() -> argparse.Namespace:
     """
     Parse input arguments
     """
-    parser = argparse.ArgumentParser(description="SPACE4AI-R max-load api")
+    parser = argparse.ArgumentParser(
+      description="SPACE4AI-R check feasibility boundaries api"
+    )
     parser.add_argument(
       "--check_home",
       default=False,
@@ -46,6 +48,18 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
       "--max_load", 
+      help="Upper bound of the binary search", 
+      type=float,
+      default=None
+    )
+    parser.add_argument(
+      "--min_bandwidth", 
+      help="Lower bound of the binary search", 
+      type=float,
+      default=None
+    )
+    parser.add_argument(
+      "--max_bandwidth", 
       help="Upper bound of the binary search", 
       type=float,
       default=None
@@ -86,10 +100,14 @@ def main(args: argparse.Namespace):
             sample_data["lowerBoundLambda"] = args.min_load
         if args.max_load is not None:
             sample_data["upperBoundLambda"] = args.max_load
+        if args.min_bandwidth is not None:
+            sample_data["lowerBoundBandwidth"] = args.min_bandwidth
+        if args.max_bandwidth is not None:
+            sample_data["upperBoundBandwidth"] = args.max_bandwidth
         if args.epsilon is not None:
             sample_data["epsilon"] = args.epsilon
         # send request
-        url = f"http://{API_URL}:{API_PORT}/space4air/workload"
+        url = f"http://{API_URL}:{API_PORT}/space4air/checkfeasibility"
         if not args.aisprint:
             url += "/json"
         sample_result = requests.post(url = url, json = sample_data)

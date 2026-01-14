@@ -131,9 +131,10 @@ by running:
 kubectl apply -f k8s/s4air-optimizer-pod.yaml
 ```
 
-#### Starting the Web API to get the maximum admissible workload
+#### Starting the Web API to get the feasibility boundaries
 
-To expose the Web interface to get the maximum admissible workload for the 
+To expose the Web interface to get the feasibility boundaries (i.e., the 
+maximum admissible workload and minimum admissible bandwidth) for the 
 current production deployment, run:
 
 ```
@@ -147,7 +148,7 @@ docker run  --rm \
             -p 8008:8008 \
             --entrypoint python3 \
             ${IMG_NAME}:${IMG_TAG} \
-            maximum_workload.py
+            check_feasibility_boundaries.py
 ```
 
 or, if working with Kubernetes, apply the suitable deployment and service by 
@@ -259,13 +260,13 @@ provided by the caller.
 > start the `SPACE4AI-R` optimizer in the AI-SPRINT version, in a base 
 > version that processes directly JSON files, and to generate the initial 
 > solution file required by the 
-> [maximum workload API](#call-the-maximum-workload-api). Which version is 
+> [check feasibility API](#call-the-check-feasibility-api). Which version is 
 > called (and the expected structure of input/output file, which changes 
 > accordingly), depend on the two last parameters that the script accepts. In 
 > particular, add `--aisprint` (by default, False) to call the optimizer in 
 > its AI-SPRINT version. Instead, add `--loadapistructure` (by default, 
 > False) if the input/output directories should have the structure expected 
-> by the max workload API (see the 
+> by the check feasibility API (see the 
 > [i/o section](#expected-structure-of-the-inputoutput-folders) below).
 
 ### Examples
@@ -288,14 +289,15 @@ as described in the
 [testing scenarios generation](utilities/README.md#generate-a-unique-testing-scenario) 
 (see also [below](#expected-structure-of-the-inputoutput-folders)).
 
-To generate the initial solution for the maximum workload API:
+To generate the initial solution for the check feasibility API:
 
 ```
 python3 s4ai-r-opt.py \
   --application_dir output/S0I0 \
   --load 0.1 \
+  --bandwidth 10.0 \
   --log_on_file \
-  --loadapistructure
+  --feasapistructure
 ```
 
 where `output/S0I0` may contain the same `SystemFile.json` as in the 
@@ -303,27 +305,27 @@ where `output/S0I0` may contain the same `SystemFile.json` as in the
 See [below](#expected-structure-of-the-inputoutput-folders) for further 
 information on the expected `application_dir` structure.
 
-### Call the maximum workload API
+### Call the check feasibility API
 
-A script to call the maximum workload API is provided in 
-[call_max_workload_api.py](example_applications/call_max_workload_api.py). 
-The application directory and workload interval bounds are passed to the 
-script as parameters, as explained 
-[here](example_applications/README.md#maximum-workload-api).
+A script to call the check feasibility API is provided in 
+[call_checkfeasibility_api.py](example_applications/call_checkfeasibility_api.py). 
+The application directory and workload/bandwidth interval bounds are passed to 
+the script as parameters, as explained 
+[here](example_applications/README.md#check-feasibility-api).
 
 For the AI-SPRINT optimizer version, sample values relying on the 
 [blurry faces example](https://gitlab.polimi.it/ai-sprint/ai-sprint-examples/-/tree/main/blurry_faces_single_component_local_constraint/step_6), 
-are provided [here](k8s/test-max-load-api-pod.yaml) and can be executed 
+are provided [here](k8s/test-checkfeasibility-api-pod.yaml) and can be executed 
 by applying:
 
 ```
-kubectl apply -f k8s/test-max-load-api-pod.yaml
+kubectl apply -f k8s/test-checkfeasibility-api-pod.yaml
 ```
 
 if the required resources are already in place.
 
 >[!CAUTION] 
-> The maximum workload API relies on an input json file produced 
+> The check feasibility API relies on an input json file produced 
 > when running the SPACE4AI-R optimizer for the first time; therefore, errors 
 > will be incurred if the API is called before running any runtime 
 > reconfiguration.
@@ -337,15 +339,15 @@ particular:
 structure of the `step_5` subfolder of examples available in 
 [AI-SPRINT Examples](https://gitlab.polimi.it/ai-sprint/ai-sprint-examples). 
 If working in the AI-SPRINT framework, once a runtime optimization has been 
-executed, producing the equivalent to folder `step_6`, the maximum workload 
+executed, producing the equivalent to folder `step_6`, the check feasibility 
 API can be called without further changes, following instructions 
-[here](#call-the-maximum-workload-api).
+[here](#call-the-check-feasibility-api).
 * For the base version of the `SPACE4AI-R` optimizer, refer to the directories 
 structure defined in the 
 [testing scenarios generation](utilities/README.md#generate-a-unique-testing-scenario) 
 description.
 * When running the `SPACE4AI-R` optimizer to generate the initial files for 
-the maximum workload API (outside of AI-SPRINT), refer to the structure of 
+the check feasibility API (outside of AI-SPRINT), refer to the structure of 
 the input directory described [here].
 
 > [!CAUTION]

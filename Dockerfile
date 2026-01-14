@@ -40,9 +40,10 @@ ENV LOGGER_DIR=external/space4ai_logger
 # install logger
 RUN git clone ${LOGGER_URL} ./${LOGGER_DIR}
 
-# load entrypoint code, maximum-workload webapp and dicotomic search code
+# load entrypoint code, check_feasibility_boundaries webapp and dicotomic 
+# search code
 COPY s4ai-r-opt.py .
-COPY maximum_workload.py .
+COPY check_feasibility_boundaries.py .
 COPY estimate_CPUs.py .
 
 ############################################################################

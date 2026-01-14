@@ -31,8 +31,8 @@ app = Flask(__name__)
 
 # online path
 home_path = "/"
-path = "/space4air/workload"
-json_path = "/space4air/workload/json"
+path = "/space4air/checkfeasibility"
+json_path = "/space4air/checkfeasibility/json"
 
 # exit codes
 NOT_FOUND = 404
@@ -44,7 +44,7 @@ error_msg = {
     414: "ERROR: missing mandatory input `application_dir`",
     424: "ERROR: `application_dir` is not accessible",
     434: "ERROR: `production_deployment` is not accessible",
-    444: "ERROR: missing mandatory input `lowerBoundLambda` in json setting",
+    444: "ERROR: missing mandatory boundary inputs",
     454: "ERROR: system file is not accessible",
     464: "ERROR: current solution file is not accessible",
     474: "ERROR: `upperBoundLambda` or `epsilon` not properly set"
@@ -277,6 +277,124 @@ def binary_search(
     return highest_feasible_lambda, found_any_feasible
 
 
+def bandwidth_binary_search(
+        current_lambda: float,
+        min_bandwidth: float,
+        max_bandwidth: float,
+        epsilon: float,
+        optimizer_config: dict,
+        optimizer_config_file: str,
+        logger: space4ai_logger.Logger
+    ):
+    """
+    Returns the lowest feasible bandwidth for a fixed lambda.
+    If none is feasible, returns None.
+    """
+    # Fixed bandwidth case
+    if min_bandwidth == max_bandwidth:
+        optimizer_config["Lambda"] = current_lambda
+        optimizer_config["Bandwidth"] = min_bandwidth
+        with open(optimizer_config_file, "w") as ostream:
+            json.dump(optimizer_config, ostream, indent=2)
+        feasible = check_feasibility(
+            optimizer_config=optimizer_config,
+            optimizer_config_file=optimizer_config_file,
+        )
+        return min_bandwidth if feasible else None
+    # General case
+    lowest_feasible_bw = None
+    low = min_bandwidth
+    high = max_bandwidth
+    current_bw = max_bandwidth
+    tol = epsilon + 1
+    while tol > epsilon:
+        optimizer_config["Lambda"] = current_lambda
+        optimizer_config["Bandwidth"] = current_bw
+        with open(optimizer_config_file, "w") as ostream:
+            json.dump(optimizer_config, ostream, indent=2)
+        logger.log(80 * "-")
+        logger.log(
+            f"    Check feasibility with bandwidth={current_bw}"
+        )
+        feasible = check_feasibility(
+            optimizer_config=optimizer_config,
+            optimizer_config_file=optimizer_config_file,
+        )
+        if feasible:
+            lowest_feasible_bw = current_bw
+            high = current_bw      # minimize bandwidth
+            current_bw = (low + current_bw) / 2
+            logger.log(f"        Feasible --> try lower bandwidth {high}")
+        else:
+            low = current_bw
+            current_bw = (current_bw + high) / 2
+            logger.log(f"        Unfeasible --> try higher bandwidth {low}")
+        tol = abs(high - low)
+    return lowest_feasible_bw
+
+
+def double_binary_search(
+      min_lambda: float, 
+      max_lambda: float, 
+      min_bw: float, 
+      max_bw: float, 
+      epsilon: float,
+      optimizer_config: dict,
+      optimizer_config_file: str,
+      logger: space4ai_logger.Logger
+    ) -> float:
+    """
+    Returns the maximum admissible workload for the given production 
+    deployment and the corresponding minimum bandwidth, determined through a 
+    binary search
+    """
+    # Fixed lambda case
+    if min_lambda == max_lambda:
+        bw = bandwidth_binary_search(
+            min_lambda,
+            min_bw,
+            max_bw,
+            epsilon,
+            optimizer_config,
+            optimizer_config_file,
+            logger,
+        )
+        return min_lambda, bw, bw is not None
+    # General case
+    lowest_unfeasible_lambda = max_lambda
+    highest_feasible_lambda = min_lambda
+    best_bandwidth = None
+    found_any_feasible = False
+    current_lambda = min_lambda
+    tol = epsilon + 1   # let's be sure we enter the loop
+    while tol > epsilon:
+        # check feasibility with the current workload
+        logger.log(80*"-")
+        logger.log(f"Check feasibility with workload {current_lambda}")
+        bw = bandwidth_binary_search(
+            current_lambda,
+            min_bw,
+            max_bw,
+            epsilon,
+            optimizer_config,
+            optimizer_config_file,
+            logger,
+        )
+        if bw is not None:
+            highest_feasible_lambda = current_lambda
+            best_bandwidth = bw
+            current_lambda = (lowest_unfeasible_lambda + current_lambda) / 2
+            found_any_feasible = True
+            logger.log(f"    Feasible! --> next workload {current_lambda}")
+        else:
+            lowest_unfeasible_lambda = current_lambda
+            current_lambda = (highest_feasible_lambda + current_lambda) / 2
+            logger.log(f"    Unfeasible --> next workload {current_lambda}")
+        # update tolerance
+        tol = abs(lowest_unfeasible_lambda - highest_feasible_lambda)
+    return highest_feasible_lambda, best_bandwidth, found_any_feasible
+
+
 def convert_verbosity_level(verbosity_level: str) -> int:
     """
     Return the verbosity level as required by the SPACE4AI-R-Optimizer 
@@ -447,21 +565,25 @@ def maximum_workload():
 
 
 @app.route(json_path, methods=["POST"])
-def maximum_workload_json():
+def check_feasibility_boundaries_json():
     """
-    Compute the maximum admissible workload for the given configuration
+    Compute the maximum admissible workload and the minimum admissible 
+    bandwidth for the given configuration
     """
     data = request.get_json()
     max_workload = None
+    min_bandwidth = None
     # check existence of mandatory fields:
     KEY_ERROR = 0
     if "application_dir" not in data.keys():
         KEY_ERROR = 10
     else:
-        if "lowerBoundLambda" not in data.keys():
+        if "lowerBoundLambda" not in data.keys() or \
+                "upperBoundBandwidth" not in data.keys():
             KEY_ERROR = 40
         else:
             min_lambda = data["lowerBoundLambda"]
+            max_bw = data["upperBoundBandwidth"]
             # define directories and files paths
             application_dir = data["application_dir"]
             input_dir = os.path.join(MOUNT_POINT, "input", application_dir)
@@ -469,12 +591,13 @@ def maximum_workload_json():
                 MOUNT_POINT, "output", application_dir, "space4air"
             )
             output_dir = os.path.join(
-                MOUNT_POINT, "output", application_dir, "maxworkloadapi"
+                MOUNT_POINT, "output", application_dir, "checkfeasibilityapi"
             )
             os.makedirs(output_dir, exist_ok = True)
             system_file = os.path.join(input_dir, "SystemFile.json")
             current_solution_file = os.path.join(
-                s4air_output_dir, f"Lambda_{min_lambda}.json"
+                s4air_output_dir, 
+                f"Lambda_{min_lambda}-Bandwidth_{max_bw}.json"
             )
             # check that the system file is accessible
             if not os.path.exists(system_file):
@@ -487,18 +610,22 @@ def maximum_workload_json():
                 logger = space4ai_logger.Logger()
                 # get binary search parameters
                 max_lambda = data.get("upperBoundLambda")
+                min_bw = data.get("lowerBoundBandwidth")
                 epsilon = data.get("epsilon")
                 if max_lambda is None or epsilon is None:
                     KEY_ERROR = 70
                 else:
                     logger.log(
-                        f"Binary search between {min_lambda} and {max_lambda}"
+                        "Binary search in "
+                        f"[{min_lambda},{max_lambda}]x[{min_bw},{max_bw}]"
                     )
                     max_workload = min_lambda
+                    min_bandwidth = max_bw
                     found_any_feasible = False
                     # copy solution
                     solution_file = os.path.join(
-                        output_dir, f"Lambda_{min_lambda}.json"
+                        output_dir, 
+                        f"Lambda_{min_lambda}-Bandwidth_{max_bw}.json"
                     )
                     shutil.copyfile(
                         current_solution_file, solution_file
@@ -518,6 +645,7 @@ def maximum_workload_json():
                             )
                         ],
                         "Lambda": None,
+                        "Bandwidth": None,
                         "Logger": {
                             "priority": verbosity_level,
                             "terminal_stream": True,
@@ -530,9 +658,15 @@ def maximum_workload_json():
                     )
                     # start binary search
                     logger.log("Start binary search")
-                    max_workload, found_any_feasible = binary_search(
+                    (
+                        max_workload, 
+                        min_bandwidth, 
+                        found_any_feasible
+                    ) = double_binary_search(
                         min_lambda=min_lambda,
                         max_lambda=max_lambda,
+                        min_bw=min_bw,
+                        max_bw=max_bw,
                         epsilon=epsilon,
                         optimizer_config=config,
                         optimizer_config_file=config_file,
@@ -541,25 +675,26 @@ def maximum_workload_json():
                     logger.log(
                         "Binary search terminates with {} value {}".format(
                             "FEASIBLE" if found_any_feasible else "UNFEASIBLE",
-                            max_workload
+                            (max_workload, min_bandwidth)
                         )
                     )
                     if found_any_feasible:
                         # save the final solution
-                        max_load_solution_file = os.path.join(
+                        bounds_solution_file = os.path.join(
                             output_dir,
-                            f"Output_max_Lambda_{max_workload}.json"
+                            f"Output_max_Lambda_{max_workload}-min_Bandwidth_{min_bandwidth}.json"
                         )
                         shutil.move(
-                            solution_file, max_load_solution_file
+                            solution_file, bounds_solution_file
                         )
                         logger.log(
-                            f"Final solution written at {max_load_solution_file}"
+                            f"Final solution written at {bounds_solution_file}"
                         )
                     # define output
                     output = (
                         {
                             "max_workload": max_workload, 
+                            "min_bandwidth": min_bandwidth, 
                             "feasible": found_any_feasible
                         }, 
                         SUCCESS

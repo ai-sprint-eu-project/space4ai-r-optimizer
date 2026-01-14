@@ -7,11 +7,11 @@ spec:
   template:
     spec:
       containers:
-      - name: max-load-api
+      - name: check-feasibility-api
         image: aisprint/space4ai-r:webapi
         imagePullPolicy: Never
         entrypoint: "python3"
-        command: "maximum_workload.py"
+        command: "check_feasibility_boundaries.py"
         ports:
         - containerPort: 8008
         env:
@@ -26,17 +26,17 @@ spec:
             configMapKeyRef:
               name: aml-ws-config
               key: AMLLIBRARY_PORT
-        # environment variables for max-load-api
-        - name: S4AIR_MAXLOADAPI_URL
+        # environment variables for check-feasibility-api
+        - name: S4AIR_FEASIBILITYAPI_URL
           valueFrom:
             configMapKeyRef:
               name: config
-              key: S4AIR_MAXLOADAPI_URL
-        - name: S4AIR_MAXLOADAPI_PORT
+              key: S4AIR_FEASIBILITYAPI_URL
+        - name: S4AIR_FEASIBILITYAPI_PORT
           valueFrom:
             configMapKeyRef:
               name: config
-              key: S4AIR_MAXLOADAPI_PORT
+              key: S4AIR_FEASIBILITYAPI_PORT
         - name: MOUNT_POINT
           valueFrom:
             configMapKeyRef:

@@ -1,12 +1,12 @@
 resources:
-- max-load-api-service.yaml
-- max-load-api-deployment.yaml
+- check-feasibility-api-service.yaml
+- check-feasibility-api-deployment.yaml
 
 commonLabels:
-  app: s4air-max-load-api
+  app: s4air-check-feasibility-api
 
 namePrefix:
-  s4air-max-load-api-
+  s4air-check-feasibility-api-
 
 configMapGenerator:
 - name: config

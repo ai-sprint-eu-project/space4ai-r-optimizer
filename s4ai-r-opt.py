@@ -100,7 +100,7 @@ def parse_arguments() -> argparse.Namespace:
       action="store_true"
     )
     parser.add_argument(
-      "--loadapistructure",
+      "--feasapistructure",
       default=False,
       action="store_true"
     )
@@ -413,14 +413,14 @@ def main(
     # define the output file
     application_dir = os.path.join(MOUNT_POINT, args.application_dir)
     output_dir = os.path.join(application_dir, "space4air")
-    fname = f"Lambda_{args.load}"
-    if not args.loadapistructure:
-      fname = f"Solution-{fname}-Bandwidth_{args.bandwidth}"
+    fname = f"Lambda_{args.load}-Bandwidth_{args.bandwidth}"
+    if not args.feasapistructure:
+      fname = f"Solution-{fname}"
     new_deployment_file = os.path.join(output_dir, f"{fname}.json")
     os.makedirs(output_dir, exist_ok = True)
     # optimize
     system_file = None
-    if not args.loadapistructure:
+    if not args.feasapistructure:
         system_file = os.path.join(application_dir, "SystemFile.json")
     else:
         system_file = os.path.join(
