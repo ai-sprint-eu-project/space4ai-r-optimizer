@@ -1194,19 +1194,15 @@ def main(
 
 
 if __name__ == "__main__":
-    # # parse arguments
-    # args = parse_arguments()
-    # results_dir = args.results_dir
-    # heuristics = args.heuristics
-    # target = args.target
-    # skip = {
-    #     "instance": args.skip_instance, 
-    #     "scenario": args.skip_scenario,
-    #     "workload": args.skip_workload
-    # }
-    results_dir = "/Users/federicafilippini/Documents/GitHub/ai-sprint-eu-project/space4ai-r-optimizer/example_applications/S4AIRvsUHEUR"
-    heuristics = ["s4air", "uheur"]
-    target = "s4air"
-    skip = {"instance": False, "scenario": False, "workload": False}
+    # parse arguments
+    args = parse_arguments()
+    results_dir = args.results_dir
+    heuristics = args.heuristics
+    target = args.target
+    skip = {
+        "instance": args.skip_instance, 
+        "scenario": args.skip_scenario,
+        "workload": args.skip_workload
+    }
     # run
     main(results_dir, heuristics, target, skip)
