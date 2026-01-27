@@ -71,6 +71,12 @@ def parse_arguments() -> argparse.Namespace:
       default=None
     )
     parser.add_argument(
+      "--method", 
+      help="Method used to compute the solution", 
+      type=str,
+      default="space4air"
+    )
+    parser.add_argument(
       "--verbosity_level", 
       help="Verbosity level", 
       type=str,
@@ -80,12 +86,24 @@ def parse_arguments() -> argparse.Namespace:
     return args
 
 
-def main(args: argparse.Namespace):
+def main(
+        check_home: bool,
+        application_dir: str,
+        verbosity_level: str,
+        min_load: float,
+        max_load: float,
+        min_bandwidth: float,
+        max_bandwidth: float,
+        epsilon: float,
+        method: str,
+        aisprint: bool
+    ) -> dict:
     # get environment variables with url and port
     API_URL = os.getenv("S4AIR_MAXLOADAPI_URL", "0.0.0.0")
     API_PORT = os.getenv("S4AIR_MAXLOADAPI_PORT", "8008")
     # check home, if required
-    if args.check_home:
+    sample_result = None
+    if check_home:
         url = f"http://{API_URL}:{API_PORT}/"
         sample_result = requests.get(url = url)
         print(sample_result)
@@ -93,28 +111,51 @@ def main(args: argparse.Namespace):
     else:
         # define data
         sample_data = {
-          "application_dir": args.application_dir,
-          "verbosity_level": args.verbosity_level
+          "application_dir": application_dir,
+          "verbosity_level": verbosity_level,
+          "method": method
         }
-        if args.min_load is not None:
-            sample_data["lowerBoundLambda"] = args.min_load
-        if args.max_load is not None:
-            sample_data["upperBoundLambda"] = args.max_load
-        if args.min_bandwidth is not None:
-            sample_data["lowerBoundBandwidth"] = args.min_bandwidth
-        if args.max_bandwidth is not None:
-            sample_data["upperBoundBandwidth"] = args.max_bandwidth
-        if args.epsilon is not None:
-            sample_data["epsilon"] = args.epsilon
+        if min_load is not None:
+            sample_data["lowerBoundLambda"] = min_load
+        if max_load is not None:
+            sample_data["upperBoundLambda"] = max_load
+        if min_bandwidth is not None:
+            sample_data["lowerBoundBandwidth"] = min_bandwidth
+        if max_bandwidth is not None:
+            sample_data["upperBoundBandwidth"] = max_bandwidth
+        if epsilon is not None:
+            sample_data["epsilon"] = epsilon
         # send request
         url = f"http://{API_URL}:{API_PORT}/space4air/checkfeasibility"
-        if not args.aisprint:
+        if not aisprint:
             url += "/json"
         sample_result = requests.post(url = url, json = sample_data)
         print(sample_result)
         print(sample_result.json())
+    return sample_result.json()
 
 
 if __name__ == "__main__":
     args = parse_arguments()
-    main(args)
+    check_home = args.check_home
+    application_dir = args.application_dir
+    verbosity_level = args.verbosity_level
+    min_load = args.min_load
+    max_load = args.max_load
+    min_bandwidth = args.min_bandwidth
+    max_bandwidth = args.max_bandwidth
+    epsilon = args.epsilon
+    method = args.method
+    aisprint = args.aisprint
+    main(
+        check_home,
+        application_dir,
+        verbosity_level,
+        min_load,
+        max_load,
+        min_bandwidth,
+        max_bandwidth,
+        epsilon,
+        method,
+        aisprint
+    )

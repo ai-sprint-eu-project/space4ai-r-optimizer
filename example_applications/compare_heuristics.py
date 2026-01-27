@@ -89,12 +89,14 @@ def convert_verbosity_level(verbosity_level: str, who: str) -> int:
         return -1
 
 
-def get_data_list(application_dir: str, key: str = "Lambda") -> list:
+def get_data_list(
+        application_dir: str, key: str = "Lambda", sfx: str = ""
+    ) -> list:
     """
     Get list of trace values from file
     """
     values = []
-    trace_file = os.path.join(application_dir, f"{key}Values.json")
+    trace_file = os.path.join(application_dir, f"{key}Values{sfx}.json")
     with open(trace_file, "r") as istream:
         values = json.load(istream)[f"{key}Vec"]
     return values
@@ -241,7 +243,6 @@ def build_uheur_directory(args: argparse.Namespace) -> str:
     if args.heuristic_rule == "percentage":
         argsdir += f"_{args.decr_percentage}_{args.incr_percentage}"
     uheur_dir = os.path.join(args.application_dir, "uheur", argsdir)
-    os.makedirs(uheur_dir, exist_ok=True)
     return uheur_dir
 
 
@@ -256,6 +257,7 @@ def main(
     s4air_dir = os.path.join(args.application_dir, "s4air")
     os.makedirs(s4air_dir, exist_ok=True)
     uheur_dir = build_uheur_directory(args)
+    os.makedirs(uheur_dir, exist_ok=True)
     # get list of workload values
     lambdas = get_data_list(args.application_dir, "Lambda")
     bandwidths = get_data_list(args.application_dir, "Bandwidth")
