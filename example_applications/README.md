@@ -74,7 +74,9 @@ Example:
 
 ## Check feasibility API
 
-To invoke the `SPACE4AI-R` check feasibility API, run the 
+### For a single solution
+
+To invoke the `SPACE4AI-R` check feasibility API on a single solution, run the 
 [call_checkfeasibility_api.py](call_checkfeasibility_api.py) script as follows:
 
 ```
@@ -123,6 +125,182 @@ input parameters to the binary search (always mandatory).
 > [!CAUTION]
 > The `min_load` and the `max_bandwidth` values must correspond to those for 
 > which an initial solution exists in the input directory.
+
+### On the results of compare heuristics
+
+To invoke instead the same API considering a bandwidth trace and the solutions 
+generated with [compare heuristics](#compare-heuristics), create a container 
+by running:
+
+```
+CONT_NAME=s4airopt
+PATH_TO_VOLUME=${PWD}/example_applications
+MOUNT_POINT=/mnt
+docker run  -it \
+            --name ${CONT_NAME} \
+            -e MOUNT_POINT=${MOUNT_POINT} \
+            -v ${PATH_TO_VOLUME}:${MOUNT_POINT} \
+            --network host \
+            ${IMG_NAME}:${IMG_TAG}
+```
+
+> [!WARNING]
+> While the command is similar to those reported in 
+> [the general instructions](../README.md#start-the-container), the 
+> `--network host` option is needed to connect this container with 
+> [the API container](../README.md#starting-the-web-api-to-get-the-feasibility-boundaries)
+
+Then, from the container terminal, run:
+
+```
+cp /mnt/compare_heuristics.py .
+cp /mnt/call_checkfeasibility_api.* .
+cp /mnt/check_trace_feasibility.py .
+```
+
+to make the relevant scripts available in the `/home/SPACE4AI-R` directory. 
+
+#### For a single instance
+
+Finally, execute the [check_trace_feasibility.py](check_trace_feasibility.py) 
+script as:
+
+```
+usage: check_trace_feasibility.py [-h] [--application_dir APPLICATION_DIR]
+                                  [--heuristic_rule {fixed,percentage}]
+                                  [--min_utilization MIN_UTILIZATION]
+                                  [--max_utilization MAX_UTILIZATION]
+                                  [--decr_percentage DECR_PERCENTAGE]
+                                  [--incr_percentage INCR_PERCENTAGE]
+                                  [--epsilon EPSILON]
+                                  [--verbosity_level {INFO,DEBUG,TRACE}]
+
+Check solutions feasibility along a bandwidth trace
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --application_dir APPLICATION_DIR
+                        Path to the application directory
+  --heuristic_rule {fixed,percentage}
+                        Rule to be followed by Utilization Heuristic
+  --min_utilization MIN_UTILIZATION
+                        Minimum utilization threshold
+  --max_utilization MAX_UTILIZATION
+                        Maximum utilization threshold
+  --decr_percentage DECR_PERCENTAGE
+                        Number of instances decrease percentage
+  --incr_percentage INCR_PERCENTAGE
+                        Number of instances increase percentage
+  --epsilon EPSILON     Binary search tolerance
+  --verbosity_level {INFO,DEBUG,TRACE}
+                        Verbosity level for logging
+```
+
+Note that all parameters except `epsilon` have the same meaning as in the 
+compare heuristics; in particular, they are used to determine the proper 
+directory structure to look for solutions. However, you must consider 
+one instance at a time. As an example, if you previously run:
+
+```
+./compare_heuristics.sh \
+  S4AIR \
+  2.4 \
+  10.0 \
+  0 \
+  1 \
+  percentage \
+  0.1 \
+  0.2 \
+  0.2 \
+  0.2 \
+  INFO
+```
+
+To check the feasibility of all solutions in Scenario0, Instance0 now you 
+should execute:
+
+```
+python3 check_trace_feasibility.py \
+  --application_dir /mnt/S4AIR/Lambda_2.4-Bandwidth_10.0/Scenario0/Instance0 \
+  --heuristic_rule percentage \
+  --min_utilization 0.1 \
+  --max_utilization 0.2 \
+  --decr_percentage 0.2 \
+  --incr_percentage 0.2 \
+  --epsilon 0.001 \
+  --verbosity_level INFO
+```
+
+The `epsilon` parameter is a binary search accuracy parameter.
+
+> [!NOTE]
+> A summary of the feasibility results is reported in 
+> `application_dir/trace_feasibility.txt`
+
+#### For multiple scenarios/instances
+
+Run the [check_trace_feasibility.sh](check_trace_feasibility.sh) bash script 
+as:
+
+```
+Required parameters:
+  1: application directory
+  2: workload
+  3: bandwidth
+  4: number of scenarios S (scenarios are numbered from 0 to S, incl.)
+  5: number of instances I per scenario (numbered from 0 to I, incl.)
+  6: epsilon
+  7: utilization heuristic update rule (fixed/percentage)
+  8: minimum utilization threshold
+  9: maximum utilization threshold
+  10: decrease percentage
+  11: increase percentage
+  12: verbosity level
+```
+
+All parameters except `epsilon` are the same used to 
+[compare heuristics](#compare-heuristics) and they should have the same values 
+to run the comparison for all scenarios. The `epsilon` parameter is a binary 
+search accuracy parameter.
+
+As an example, if you run:
+
+```
+./compare_heuristics.sh \
+  S4AIR \
+  2.4 \
+  10.0 \
+  0 \
+  1 \
+  percentage \
+  0.1 \
+  0.2 \
+  0.2 \
+  0.2 \
+  INFO
+```
+
+you can run the feasibility check on all the obtained results by executing:
+
+```
+./check_trace_feasibility.sh \
+  S4AIR \
+  2.4 \
+  10.0 \
+  0 \
+  1 \
+  0.001 \
+  percentage \
+  0.1 \
+  0.2 \
+  0.2 \
+  0.2 \
+  INFO
+```
+
+> [!NOTE]
+> A summary of the feasibility results is reported in each 
+> `<application_dir>/Lambda_<workload>-Bandwidth_<bandwidth>/Scenario<S>/Instance<I>/trace_feasibility.txt`
 
 ### I/O directory structure (outside AI-SPRINT)
 
