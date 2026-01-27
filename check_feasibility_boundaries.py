@@ -42,11 +42,11 @@ SUCCESS = 201
 error_msg = {
     404: "ERROR: page not found",
     414: "ERROR: missing mandatory input `application_dir`",
-    424: "ERROR: `application_dir` is not accessible",
+    424: "ERROR: `application_dir` is not accessible: ",
     434: "ERROR: `production_deployment` is not accessible",
     444: "ERROR: missing mandatory boundary inputs",
-    454: "ERROR: system file is not accessible",
-    464: "ERROR: current solution file is not accessible",
+    454: "ERROR: system file is not accessible: ",
+    464: "ERROR: current solution file is not accessible: ",
     474: "ERROR: `upperBoundLambda` or `epsilon` not properly set"
 }
 
@@ -573,6 +573,7 @@ def check_feasibility_boundaries_json():
     data = request.get_json()
     max_workload = None
     min_bandwidth = None
+    ADDITIONAL_ERROR_MSG = ""
     # check existence of mandatory fields:
     KEY_ERROR = 0
     if "application_dir" not in data.keys():
@@ -584,11 +585,12 @@ def check_feasibility_boundaries_json():
         else:
             min_lambda = data["lowerBoundLambda"]
             max_bw = data["upperBoundBandwidth"]
+            method = data.get("method", "space4air")
             # define directories and files paths
             application_dir = data["application_dir"]
             input_dir = os.path.join(MOUNT_POINT, "input", application_dir)
             s4air_output_dir = os.path.join(
-                MOUNT_POINT, "output", application_dir, "space4air"
+                MOUNT_POINT, "output", application_dir, method
             )
             output_dir = os.path.join(
                 MOUNT_POINT, "output", application_dir, "checkfeasibilityapi"
@@ -602,9 +604,11 @@ def check_feasibility_boundaries_json():
             # check that the system file is accessible
             if not os.path.exists(system_file):
                 KEY_ERROR = 50
+                ADDITIONAL_ERROR_MSG = system_file
             # check that the current solution file is accessible
             if not os.path.exists(current_solution_file):
                 KEY_ERROR = 60
+                ADDITIONAL_ERROR_MSG = current_solution_file
             else:
                 # initialize logger
                 logger = space4ai_logger.Logger()
@@ -702,7 +706,7 @@ def check_feasibility_boundaries_json():
     # if any key error is defined, return error code
     if KEY_ERROR > 0:
         output = (
-            error_msg[NOT_FOUND + KEY_ERROR], 
+            error_msg[NOT_FOUND + KEY_ERROR] + ADDITIONAL_ERROR_MSG, 
             NOT_FOUND + KEY_ERROR
         )
     return jsonify(output[0]), output[1]
