@@ -146,8 +146,8 @@ def main(
         os.path.join(args.application_dir, "../.."), 
         "Bandwidth", 
         "Extended"
-    )
-    bdw_step = len(bdw_ext[1:]) // len(bandwidths[1:])
+    )[1:]
+    bdw_step = len(bdw_ext) // len(bandwidths[1:])
     # loop over workloads/bandwidths (skip design-time)
     feasible = []
     wn = args.workload_noise
@@ -187,6 +187,8 @@ def main(
         feasible.append({
             "bandwidth": bandwidth,
             "min_bandwidth_interval": bdw_min,
+            "workload": workload,
+            "max_workload_interval": workload * (1 + wn),
             "s4air_feasible": s_feasible,
             "s4air_dirname": s_dirname,
             "uheur_feasible": u_feasible,
