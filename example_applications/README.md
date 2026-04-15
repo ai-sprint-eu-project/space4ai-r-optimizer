@@ -173,6 +173,7 @@ usage: check_trace_feasibility.py [-h] [--application_dir APPLICATION_DIR]
                                   [--decr_percentage DECR_PERCENTAGE]
                                   [--incr_percentage INCR_PERCENTAGE]
                                   [--epsilon EPSILON]
+                                  [--workload_noise WORKLOAD_NOISE]
                                   [--verbosity_level {INFO,DEBUG,TRACE}]
 
 Check solutions feasibility along a bandwidth trace
@@ -192,14 +193,17 @@ optional arguments:
   --incr_percentage INCR_PERCENTAGE
                         Number of instances increase percentage
   --epsilon EPSILON     Binary search tolerance
+  --workload_noise WORKLOAD_NOISE
+                        Percentage noise to be added to the workload
   --verbosity_level {INFO,DEBUG,TRACE}
                         Verbosity level for logging
 ```
 
-Note that all parameters except `epsilon` have the same meaning as in the 
-compare heuristics; in particular, they are used to determine the proper 
-directory structure to look for solutions. However, you must consider 
-one instance at a time. As an example, if you previously run:
+Note that all parameters except `epsilon` and `workload_noise` have the 
+same meaning as in the compare heuristics; in particular, they are used to 
+determine the proper directory structure to look for solutions. However, 
+you must consider one instance at a time. As an example, if you previously 
+run:
 
 ```
 ./compare_heuristics.sh \
@@ -228,14 +232,20 @@ python3 check_trace_feasibility.py \
   --decr_percentage 0.2 \
   --incr_percentage 0.2 \
   --epsilon 0.001 \
+  --workload_noise 0.0 \
   --verbosity_level INFO
 ```
 
-The `epsilon` parameter is a binary search accuracy parameter.
+The `epsilon` parameter is a binary search accuracy parameter. The 
+`workload_noise` parameter, instead, can be used to set a maximum workload 
+value to be considered in the binary search; in particular, this is 
+computed as `w * (1 - workload_noise)`, where `w` is the actual workload 
+value in the solution trace.
 
 > [!NOTE]
 > A summary of the feasibility results is reported in 
-> `application_dir/trace_feasibility.txt`
+> `application_dir/trace_feasibility-<uheur_rule>-w_<workload_noise>.txt`, 
+> where `uheur_rule` characterizes the update rule that was used by UHEUR.
 
 #### For multiple scenarios/instances
 
@@ -250,18 +260,22 @@ Required parameters:
   4: number of scenarios S (scenarios are numbered from 0 to S, incl.)
   5: number of instances I per scenario (numbered from 0 to I, incl.)
   6: epsilon
-  7: utilization heuristic update rule (fixed/percentage)
-  8: minimum utilization threshold
-  9: maximum utilization threshold
-  10: decrease percentage
-  11: increase percentage
-  12: verbosity level
+  7: percentage noise to be added to the workload
+  8: utilization heuristic update rule (fixed/percentage)
+  9: minimum utilization threshold
+  10: maximum utilization threshold
+  11: decrease percentage
+  12: increase percentage
+  13: verbosity level
 ```
 
-All parameters except `epsilon` are the same used to 
+All parameters except `epsilon` and the workload noise are the same used to 
 [compare heuristics](#compare-heuristics) and they should have the same values 
 to run the comparison for all scenarios. The `epsilon` parameter is a binary 
-search accuracy parameter.
+search accuracy parameter, while the workload noise parameter can be used to 
+set a maximum workload value to be considered in the binary search; in 
+particular, this is computed as `w * (1 - workload_noise)`, where `w` is the 
+actual workload value in the solution trace.
 
 As an example, if you run:
 
@@ -290,6 +304,7 @@ you can run the feasibility check on all the obtained results by executing:
   0 \
   1 \
   0.001 \
+  0.0 \
   percentage \
   0.1 \
   0.2 \
@@ -300,7 +315,7 @@ you can run the feasibility check on all the obtained results by executing:
 
 > [!NOTE]
 > A summary of the feasibility results is reported in each 
-> `<application_dir>/Lambda_<workload>-Bandwidth_<bandwidth>/Scenario<S>/Instance<I>/trace_feasibility.txt`
+> `<application_dir>/Lambda_<workload>-Bandwidth_<bandwidth>/Scenario<S>/Instance<I>/trace_feasibility-<uheur_rule>-w_<workload_noise>.txt`
 
 ### I/O directory structure (outside AI-SPRINT)
 

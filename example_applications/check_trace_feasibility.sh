@@ -8,12 +8,13 @@ if [ "$1" = "-h" ] || [ "$1" == "--help" ]; then
   echo "  4: number of scenarios S (scenarios are numbered from 0 to S, incl.)"
   echo "  5: number of instances I per scenario (numbered from 0 to I, incl.)"
   echo "  6: epsilon"
-  echo "  7: utilization heuristic update rule (fixed/percentage)"
-  echo "  8: minimum utilization threshold"
-  echo "  9: maximum utilization threshold"
-  echo "  10: decrease percentage"
-  echo "  11: increase percentage"
-  echo "  12: verbosity level"
+  echo "  7: percentage noise to be added to the workload"
+  echo "  8: utilization heuristic update rule (fixed/percentage)"
+  echo "  9: minimum utilization threshold"
+  echo "  10: maximum utilization threshold"
+  echo "  11: decrease percentage"
+  echo "  12: increase percentage"
+  echo "  13: verbosity level"
 else
   EXP_DIR=$1
   LAMBDA=$2
@@ -21,12 +22,13 @@ else
   NSCENARIOS=$4
   NINSTANCES=$5
   EPSILON=$6
-  RULE=$7
-  MINU=$8
-  MAXU=$9
-  DECRP=${10}
-  INCRP=${11}
-  VERBOSE=${12}
+  WNOISE=$7
+  RULE=$8
+  MINU=$9
+  MAXU=$10
+  DECRP=${11}
+  INCRP=${12}
+  VERBOSE=${13}
   for s in $(seq 0 ${NSCENARIOS}); do
     echo "Scenario ${s}"
     BASE_DIR=${MOUNT_POINT}/${EXP_DIR}/Lambda_${LAMBDA}-Bandwidth_${BANDWIDTH}
@@ -45,6 +47,7 @@ else
                                         --decr_percentage ${DECRP} \
                                         --incr_percentage ${INCRP} \
                                         --epsilon ${EPSILON} \
+                                        --workload_noise ${WNOISE} \
                                         --verbosity_level ${VERBOSE} \
                                         > ${LOG_FILE} 2>&1
         else
