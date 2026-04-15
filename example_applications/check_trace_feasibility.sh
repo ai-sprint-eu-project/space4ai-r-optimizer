@@ -25,7 +25,7 @@ else
   WNOISE=$7
   RULE=$8
   MINU=$9
-  MAXU=$10
+  MAXU=${10}
   DECRP=${11}
   INCRP=${12}
   VERBOSE=${13}
