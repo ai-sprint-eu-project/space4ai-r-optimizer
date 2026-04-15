@@ -70,6 +70,12 @@ def parse_arguments() -> argparse.Namespace:
       default=None
     )
     parser.add_argument(
+      "--workload_noise", 
+      help="Percentage noise to be added to the workload", 
+      type=float,
+      default=0.0
+    )
+    parser.add_argument(
       "--verbosity_level", 
       help="Verbosity level for logging", 
       type=str, 
@@ -88,6 +94,7 @@ def check_feasibility(
         application_dir: str,
         solution_file: str, 
         workload: float, 
+        wkl_max: float,
         bandwidth: float,
         bdw_min: float,
         epsilon: float,
@@ -106,6 +113,8 @@ def check_feasibility(
     )
     # copy (and rename) solution file
     solname = os.path.basename(solution_file).replace("Solution-", "")
+    solname = solname.replace("lambda", "Lambda")
+    solname = solname.replace("bandwidth", "Bandwidth")
     copyfile(solution_file, os.path.join(output_dir, solname))
     # call check-feasibility api
     feasible = call_api(
@@ -113,7 +122,7 @@ def check_feasibility(
         application_dir = dirname,
         verbosity_level = verbosity_level,
         min_load = workload,
-        max_load = workload,
+        max_load = wkl_max,
         min_bandwidth = bdw_min,
         max_bandwidth = bandwidth,
         epsilon = epsilon,
@@ -141,9 +150,10 @@ def main(
     bdw_step = len(bdw_ext[1:]) // len(bandwidths[1:])
     # loop over workloads/bandwidths (skip design-time)
     feasible = []
+    wn = args.workload_noise
     for i, (workload, bandwidth) in enumerate(zip(lambdas[1:],bandwidths[1:])):
         logger.log(
-            f"Considering workload {workload}; bandwidth {bandwidth}"
+            f"Considering workload {workload} (+{wn}); bandwidth {bandwidth}"
         )
         s4air_solution_file = os.path.join(
             s4air_dir, f"Solution-lambda_{workload}-bandwidth_{bandwidth}.json"
@@ -158,6 +168,7 @@ def main(
             application_dir = args.application_dir,
             solution_file = s4air_solution_file,
             workload = workload,
+            wkl_max = workload * (1 + wn),
             bandwidth = bandwidth,
             bdw_min = bdw_min,
             epsilon = args.epsilon,
@@ -167,6 +178,7 @@ def main(
             application_dir = args.application_dir,
             solution_file = uheur_solution_file,
             workload = workload,
+            wkl_max = workload * (1 + wn),
             bandwidth = bandwidth,
             bdw_min = bdw_min,
             epsilon = args.epsilon,
@@ -180,8 +192,9 @@ def main(
             "uheur_feasible": u_feasible,
             "uheur_dirname": u_dirname
         })
+    fname = f"trace_feasibility-{os.path.basename(uheur_dir)}-w_{wn}.txt"
     with open(
-          os.path.join(args.application_dir, "trace_feasibility.txt"), "w"
+          os.path.join(args.application_dir, fname), "w"
         ) as ostream:
         for line in feasible:
             ostream.write(f"{line}\n")
