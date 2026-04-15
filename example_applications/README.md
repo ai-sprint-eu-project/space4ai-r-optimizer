@@ -154,8 +154,8 @@ Then, from the container terminal, run:
 
 ```
 cp /mnt/compare_heuristics.py .
-cp /mnt/call_checkfeasibility_api.* .
-cp /mnt/check_trace_feasibility.py .
+cp /mnt/call_checkfeasibility_api.py .
+cp /mnt/check_trace_feasibility.* .
 ```
 
 to make the relevant scripts available in the `/home/SPACE4AI-R` directory. 
