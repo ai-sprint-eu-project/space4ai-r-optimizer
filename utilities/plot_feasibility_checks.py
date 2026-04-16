@@ -245,10 +245,18 @@ def evaluate_instance(
                     )
                 )
                 colnames.append(f"w_f-{wn}")
+                heurdata[f"combined_f-{wn}"] = (
+                    heurdata["b_f"] & heurdata[f"w_f-{wn}"]
+                )
+                colnames.append(f"combined_f-{wn}")
             heurdata[f"w_f-{wnb}"] = (
                 heurdata["max_workload"] >= heurdata["max_workload_interval"]
             )
             colnames.append(f"w_f-{wnb}")
+            heurdata[f"combined_f-{wnb}"] = (
+                heurdata["b_f"] & heurdata[f"w_f-{wnb}"]
+            )
+            colnames.append(f"combined_f-{wnb}")
             if workload_boundaries[wnb]["colnames"] is None:
                 workload_boundaries[wnb]["colnames"] = colnames
             workload_boundaries[wnb]["data"] = pd.concat(
