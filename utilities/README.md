@@ -271,16 +271,22 @@ prototype:
 usage: plot_results.py  [-h] [--results_dir RESULTS_DIR] 
                         [--heuristics HEURISTICS [HEURISTICS ...]] 
                         [--target TARGET]
+                        [--skip_instance] 
+                        [--skip_scenario] 
+                        [--skip_workload]
 
 Results Postprocessing
 
 options:
-  -h, --help          show this help message and exit
+  -h, --help            show this help message and exit
   --results_dir RESULTS_DIR
-                      Path to the results directory
+                        Path to the results directory
   --heuristics HEURISTICS [HEURISTICS ...]
-                      List of heuristics to consider (available: s4air, uheur)
-  --target TARGET     Target method
+                        List of heuristics to consider (available: s4air, uheur)
+  --target TARGET       Target method
+  --skip_instance       True if instance-specific plots should not be generated
+  --skip_scenario       True if scenario-specific plots should not be generated
+  --skip_workload       True if workload-specific plots should not be generated
 ```
 
 The mandatory parameters are:
