@@ -733,11 +733,18 @@ def plot_percentage_cost_reduction(
     plt.close()
 
 
-def barplot(data: pd.DataFrame, ylabel: str, title: str, plot_dir: str):
+def barplot(
+        data: pd.DataFrame, 
+        ylabel: str, 
+        title: str, 
+        plot_dir: str,
+        rot: float = None,
+        xlabel: str = None
+    ):
     ax = data.plot.bar(
-        fontsize = 14, grid = True
+        fontsize = 14, grid = True, rot = rot
     )
-    ax.set_xlabel(None)
+    ax.set_xlabel(xlabel, fontsize=14)
     ax.set_ylabel(ylabel, fontsize=14)
     ax.legend(fontsize=14)
     plt.savefig(
