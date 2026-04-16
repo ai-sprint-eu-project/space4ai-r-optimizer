@@ -1054,7 +1054,8 @@ def evaluate_workload(
             all_n_violations["all_n_violations_avg"],
             "average percentage # violations",
             "avg_n_violations.png",
-            plot_dir
+            plot_dir,
+            rot = 0
         )
     return all_results, all_costs, all_pcr, all_n_violations
 
@@ -1124,7 +1125,9 @@ def main(
         all_pcr["all_pcr_avg"],
         "average percentage cost reduction",
         "average_pcr.png",
-        plot_dir
+        plot_dir,
+        rot = 0,
+        xlabel = "$\lambda_{\max}$ [req/s]"
     )
     # # plot the average percentage cost reduction in all scenarios
     # alldf = pd.DataFrame()
@@ -1165,7 +1168,9 @@ def main(
         all_n_violations["all_n_violations_avg"],
         "average percentage # violations",
         "avg_n_violations.png",
-        plot_dir
+        plot_dir,
+        rot = 0,
+        xlabel = "$\lambda_{\max}$ [req/s]"
     )
     # # plot the average number of violations in all scenarios
     # alldf = pd.DataFrame()
