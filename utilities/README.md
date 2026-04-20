@@ -301,6 +301,48 @@ the base implementation of the SPACE4AI-R Optimizer, denoted by `s4air`.
 The `target` method can be modified by providing a new value to the 
 corresponding parameter.
 
+### Plot results of feasibiliy checks
+
+The [`plot_feasibility_checks`](plot_feasibility_checks.py) script can be used 
+to plot and compare the results of feasibility checks conducted on the results 
+of the SPACE4AI-R Optimizer, exploiting the available heuristics. It can be 
+called from the command-line with the following prototype:
+
+```
+usage: plot_feasibility_checks.py  [-h] [--results_dir RESULTS_DIR] 
+                        [--heuristics HEURISTICS [HEURISTICS ...]] 
+                        [--target TARGET]
+                        [--skip_instance] 
+                        [--skip_scenario] 
+                        [--skip_workload]
+
+Results Postprocessing (feasibility checks)
+
+options:
+  -h, --help            show this help message and exit
+  --results_dir RESULTS_DIR
+                        Path to the results directory
+  --heuristics HEURISTICS [HEURISTICS ...]
+                        List of heuristics to consider (available: s4air, uheur)
+  --target TARGET       Target method
+  --skip_instance       True if instance-specific plots should not be generated
+  --skip_scenario       True if scenario-specific plots should not be generated
+  --skip_workload       True if workload-specific plots should not be generated
+```
+
+As for [comparative results](#plot-comparative-results), the mandatory 
+parameters are:
+* `results_dir`, which denotes the path to the results directory. 
+This should have the structure described in 
+[the following](#structure-of-the-results-folder).
+* `heuristics`, which corresponds to the (list of) heuristic method(s) 
+to be validated and compared.
+
+In particular, the comparison is performed, by default, with respect to 
+the base implementation of the SPACE4AI-R Optimizer, denoted by `s4air`. 
+The `target` method can be modified by providing a new value to the 
+corresponding parameter.
+
 ## Structure of configuration files
 
 This section defines the fields to be included in the configuration files 

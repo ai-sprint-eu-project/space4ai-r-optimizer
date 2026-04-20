@@ -29,7 +29,9 @@ def parse_arguments() -> argparse.Namespace:
     """
     Parse input arguments
     """
-    parser = argparse.ArgumentParser(description="Results Postprocessing")
+    parser = argparse.ArgumentParser(
+        description="Results Postprocessing (feasibility checks)"
+    )
     parser.add_argument(
       "--results_dir", 
       help="Path to the results directory", 
